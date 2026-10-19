@@ -11,6 +11,8 @@ const repo = new TravelRepository(dbPath);
 const enrichment = new EnrichmentService();
 const app = createApp(repo, enrichment, uploadsDir);
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Travel Footprint Server listening on http://localhost:${port}`);
+const host = process.env.HOST || '127.0.0.1';
+
+app.listen(port, host, () => {
+  console.log(`Travel Footprint Server listening on http://${host}:${port}`);
 });

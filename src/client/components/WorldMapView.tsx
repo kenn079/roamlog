@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Layers } from 'lucide-react';
+import { MapPin } from 'lucide-react';
+import { EmptyCamp, tiltFor } from './CampDecor';
+import type { Theme } from '../lib/theme';
 import type { Coordinates, Footprint } from '../../shared/types';
 
 export interface WorldMapViewProps {
   footprints: Footprint[];
   visitedCountryCodes: string[];
   routeCoordinates?: Coordinates[];
+  theme?: Theme;
   onSelectFootprint: (footprint: Footprint) => void;
   onMapClick?: (coords: Coordinates) => void;
 }
@@ -26,7 +29,7 @@ export function createFootprintMarkerElement(
 
   const card = document.createElement('div');
   card.className =
-    'w-11 h-11 rounded-sm bg-[#faf6f0] p-1 shadow-lg border border-amber-300 group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden';
+    'w-12 h-12 rounded-sm polaroid p-1 border border-line group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden';
 
   const thumb = fp.photos[0]?.url;
   if (thumb) {
@@ -37,18 +40,19 @@ export function createFootprintMarkerElement(
     card.appendChild(img);
   } else {
     const placeholder = document.createElement('div');
-    placeholder.className = 'w-full h-7 bg-amber-500/20 flex items-center justify-center text-xs';
-    placeholder.textContent = '📍';
+    placeholder.className =
+      'w-full h-7 bg-accent/15 text-accent flex items-center justify-center text-xs font-bold';
+    placeholder.textContent = '⛺';
     card.appendChild(placeholder);
   }
 
   const label = document.createElement('span');
-  label.className = 'text-[8px] font-bold text-stone-800 truncate w-full text-center';
+  label.className = 'text-[8px] font-bold text-paper-ink truncate w-full text-center mt-0.5';
   label.textContent = fp.title;
   card.appendChild(label);
 
   const pinTip = document.createElement('div');
-  pinTip.className = 'w-2 h-2 bg-amber-400 rotate-45 -mt-1 shadow';
+  pinTip.className = 'w-2 h-2 bg-accent rotate-45 -mt-1 shadow';
 
   el.appendChild(card);
   el.appendChild(pinTip);
@@ -65,6 +69,7 @@ export function WorldMapView({
   footprints,
   visitedCountryCodes,
   routeCoordinates,
+  theme = 'light',
   onSelectFootprint,
   onMapClick,
 }: WorldMapViewProps): React.ReactElement {
@@ -76,7 +81,6 @@ export function WorldMapView({
 
   const [mapReady, setMapReady] = useState(false);
   const [webglError, setWebglError] = useState(false);
-  const [mapTheme, setMapTheme] = useState<'voyager' | 'dark'>('voyager');
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -119,7 +123,7 @@ export function WorldMapView({
               minzoom: 0,
               maxzoom: 19,
               layout: {
-                visibility: 'visible',
+                visibility: theme === 'light' ? 'visible' : 'none',
               },
             },
             {
@@ -129,7 +133,7 @@ export function WorldMapView({
               minzoom: 0,
               maxzoom: 16,
               layout: {
-                visibility: 'none',
+                visibility: theme === 'dark' ? 'visible' : 'none',
               },
             },
             {
@@ -139,7 +143,7 @@ export function WorldMapView({
               minzoom: 0,
               maxzoom: 16,
               layout: {
-                visibility: 'none',
+                visibility: theme === 'dark' ? 'visible' : 'none',
               },
             },
           ],
@@ -173,8 +177,8 @@ export function WorldMapView({
             type: 'fill',
             source: 'visited-countries',
             paint: {
-              'fill-color': '#f59e0b',
-              'fill-opacity': 0.28,
+              'fill-color': '#e07a3f',
+              'fill-opacity': 0.3,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
           });
@@ -184,7 +188,7 @@ export function WorldMapView({
             type: 'line',
             source: 'visited-countries',
             paint: {
-              'line-color': '#d97706',
+              'line-color': '#c8643b',
               'line-width': 1.8,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
@@ -211,7 +215,7 @@ export function WorldMapView({
               'line-cap': 'round',
             },
             paint: {
-              'line-color': '#0284c7',
+              'line-color': '#7a8b5c',
               'line-width': 3,
               'line-dasharray': [2, 2],
             },
@@ -249,7 +253,7 @@ export function WorldMapView({
     };
   }, []);
 
-  // Toggle between OpenStreetMap (clear street map) and Dark theme
+  // Sync base map tiles and warm tint with the app-wide theme
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -258,27 +262,41 @@ export function WorldMapView({
         map.setLayoutProperty(
           'osm-standard-layer',
           'visibility',
-          mapTheme === 'voyager' ? 'visible' : 'none'
+          theme === 'light' ? 'visible' : 'none'
         );
       }
       if (map.getLayer('arcgis-dark-base-layer')) {
         map.setLayoutProperty(
           'arcgis-dark-base-layer',
           'visibility',
-          mapTheme === 'dark' ? 'visible' : 'none'
+          theme === 'dark' ? 'visible' : 'none'
         );
       }
       if (map.getLayer('arcgis-dark-labels-layer')) {
         map.setLayoutProperty(
           'arcgis-dark-labels-layer',
           'visibility',
-          mapTheme === 'dark' ? 'visible' : 'none'
+          theme === 'dark' ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-countries-fill')) {
+        map.setPaintProperty(
+          'visited-countries-fill',
+          'fill-color',
+          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+        );
+      }
+      if (map.getLayer('visited-countries-outline')) {
+        map.setPaintProperty(
+          'visited-countries-outline',
+          'line-color',
+          theme === 'dark' ? '#f2a65a' : '#c8643b'
         );
       }
     } catch {
       // Ignore layout property error before style load
     }
-  }, [mapTheme, mapReady]);
+  }, [theme, mapReady]);
 
   // Update illuminated country codes filter
   useEffect(() => {
@@ -348,22 +366,20 @@ export function WorldMapView({
   return (
     <div className="relative w-full flex-1 flex flex-col">
       {!webglError ? (
-        <div className="relative w-full h-[480px] sm:h-[520px] rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+        <div className="relative w-full h-[460px] sm:h-[500px] rounded-3xl overflow-hidden border border-line shadow-soft">
           <div
             ref={containerRef}
-            style={{ width: '100%', height: '100%', minHeight: '480px' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              minHeight: '460px',
+              filter:
+                theme === 'dark'
+                  ? 'sepia(0.32) saturate(0.85) brightness(0.95)'
+                  : 'sepia(0.12) saturate(0.92)',
+            }}
             className="w-full h-full"
           />
-          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMapTheme((prev) => (prev === 'voyager' ? 'dark' : 'voyager'))}
-              className="px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-slate-700 text-xs font-semibold text-slate-100 flex items-center gap-1.5 shadow-lg cursor-pointer"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              {mapTheme === 'voyager' ? '切換深色地圖' : '切換明亮地圖'}
-            </button>
-          </div>
         </div>
       ) : (
         <div
@@ -376,12 +392,12 @@ export function WorldMapView({
             const lat = Number((90 - relY * 180).toFixed(4));
             onMapClick({ lat, lng });
           }}
-          className="relative w-full h-[480px] rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden cursor-crosshair select-none"
+          className="relative w-full h-[460px] rounded-3xl bg-surface-2 border border-line overflow-hidden cursor-crosshair select-none shadow-soft"
         >
           {/* SVG World Map Fallback (Zero API Key & Zero WebGL Required) */}
           <svg
             viewBox="0 0 1000 500"
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-full object-cover"
             preserveAspectRatio="none"
           >
             <defs>
@@ -389,35 +405,28 @@ export function WorldMapView({
                 <path
                   d="M 50 0 L 0 0 0 50"
                   fill="none"
-                  stroke="#1e293b"
+                  stroke="var(--line)"
                   strokeWidth="1"
                 />
               </pattern>
             </defs>
-            <rect width="1000" height="500" fill="#0f172a" />
+            <rect width="1000" height="500" fill="var(--surface-2)" />
             <rect width="1000" height="500" fill="url(#grid)" />
-            {/* Simplified Continents Silhouette */}
-            <g fill="#1e293b" stroke="#334155" strokeWidth="1.5">
-              {/* North America */}
+            {/* Simplified Continents Silhouette in warm moss/earth tones */}
+            <g fill="var(--moss-soft)" stroke="var(--moss)" strokeWidth="1.5" opacity="0.65">
               <path d="M80,70 L260,60 L300,150 L230,240 L180,230 L110,150 Z" />
-              {/* South America */}
               <path d="M240,260 L330,280 L310,430 L260,460 L230,350 Z" />
-              {/* Europe */}
               <path d="M440,70 L570,65 L590,155 L460,165 L435,120 Z" />
-              {/* Africa */}
               <path d="M445,180 L585,185 L615,310 L545,410 L485,390 L440,260 Z" />
-              {/* Asia */}
               <path d="M580,65 L880,75 L900,220 L770,275 L640,240 L590,160 Z" />
-              {/* Taiwan & Japan highlight area */}
-              <circle cx="838" cy="180" r="8" fill="#f59e0b" opacity="0.5" />
+              <circle cx="838" cy="180" r="8" fill="var(--accent)" opacity="0.75" />
               <path d="M855,135 L878,145 L868,175 L848,165 Z" />
-              {/* Australia */}
               <path d="M760,320 L880,320 L890,410 L770,415 Z" />
             </g>
             {routeCoordinates && routeCoordinates.length > 1 && (
               <polyline
                 fill="none"
-                stroke="#38bdf8"
+                stroke="var(--accent)"
                 strokeWidth="3"
                 strokeDasharray="6,6"
                 points={routeCoordinates
@@ -445,7 +454,7 @@ export function WorldMapView({
                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                 className="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center cursor-pointer z-10"
               >
-                <div className="w-11 h-11 rounded-sm bg-[#faf6f0] p-1 shadow-lg border border-amber-300 group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden">
+                <div className="w-12 h-12 rounded-sm polaroid p-1 border border-line group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden">
                   {fp.photos[0]?.url ? (
                     <img
                       src={fp.photos[0].url}
@@ -453,76 +462,81 @@ export function WorldMapView({
                       className="w-full h-7 object-cover rounded-xs"
                     />
                   ) : (
-                    <div className="w-full h-7 bg-amber-500/20 flex items-center justify-center text-xs">
-                      📍
+                    <div className="w-full h-7 bg-accent/15 text-accent flex items-center justify-center text-xs">
+                      ⛺
                     </div>
                   )}
-                  <span className="text-[8px] font-bold text-stone-800 truncate w-full text-center">
+                  <span className="text-[8px] font-bold text-paper-ink truncate w-full text-center mt-0.5">
                     {fp.title}
                   </span>
                 </div>
-                <div className="w-2 h-2 bg-amber-400 rotate-45 -mt-1 shadow" />
+                <div className="w-2 h-2 bg-accent rotate-45 -mt-1 shadow" />
               </button>
             );
           })}
 
-          <div className="absolute bottom-3 left-3 bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
-            🌍 互動式世界地圖（免 API Key · 點擊地圖任意位置即可新增打卡）
+          <div className="absolute bottom-3 left-3 bg-surface/90 backdrop-blur-sm border border-line rounded-full px-3.5 py-1.5 text-xs text-ink-soft">
+            點擊地圖任意位置即可新增踩點回憶
           </div>
         </div>
       )}
 
       {/* Bottom Polaroid Strip for quick browsing on both mobile & desktop */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-amber-400" />
+      <div className="mt-5">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h3 className="font-display text-sm font-semibold text-ink flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-accent" />
             已解鎖地標拍立得
           </h3>
-          <span className="text-xs text-slate-500">點擊卡片或地圖圖釘查看回憶詳情</span>
+          <span className="text-xs text-ink-faint">點擊卡片或地圖圖釘查看回憶詳情</span>
         </div>
 
         {footprints.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-6 text-center text-slate-400 text-sm">
-            尚未記錄符合條件的踩點足跡，點擊右上角「打卡踩點」或「舊照批次補登」點亮你的第一個地標吧！
+          <div className="panel p-8">
+            <EmptyCamp message="尚未記錄符合條件的踩點足跡，點擊右上角「打卡踩點」或「舊照批次補登」點亮你的第一個地標吧！" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {footprints.map((fp) => (
-              <button
-                key={fp.id}
-                type="button"
-                onClick={() => onSelectFootprint(fp)}
-                className="bg-[#faf6f0] text-stone-900 p-2 pb-3 rounded-sm shadow-md hover:shadow-xl hover:-translate-y-0.5 transition text-left flex flex-col cursor-pointer"
-              >
-                <div className="aspect-[4/3] w-full bg-stone-800 rounded-xs overflow-hidden mb-2 relative">
-                  {fp.photos[0] ? (
-                    <img
-                      src={fp.photos[0].url}
-                      alt={fp.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-amber-400 text-xl">
-                      📍
-                    </div>
-                  )}
-                  {fp.weather && (
-                    <span className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                      {fp.weather.icon} {fp.weather.tempC}°C
-                    </span>
-                  )}
-                </div>
-                <div className="font-bold text-xs truncate">{fp.title}</div>
-                <div className="text-[10px] text-stone-500 truncate mt-0.5">
-                  {fp.visitedAt.slice(0, 10)} · {fp.cityName || fp.countryCode || '已踩點'}
-                </div>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {footprints.map((fp) => {
+              const deg = tiltFor(fp.id);
+              return (
+                <button
+                  key={fp.id}
+                  type="button"
+                  onClick={() => onSelectFootprint(fp)}
+                  style={{ transform: `rotate(${deg}deg)` }}
+                  className="polaroid p-2 pb-3.5 rounded-sm border border-line/70 hover:!rotate-0 hover:-translate-y-1 transition text-left flex flex-col cursor-pointer"
+                >
+                  <div className="aspect-[4/3] w-full bg-surface-2 rounded-xs overflow-hidden mb-2 relative">
+                    {fp.photos[0] ? (
+                      <img
+                        src={fp.photos[0].url}
+                        alt={fp.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-accent text-xl">
+                        ⛺
+                      </div>
+                    )}
+                    {fp.weather && (
+                      <span className="absolute top-1.5 right-1.5 bg-paper/90 text-paper-ink text-[10px] font-medium px-1.5 py-0.5 rounded-full shadow-xs">
+                        {fp.weather.icon} {fp.weather.tempC}°C
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-display font-bold text-xs text-paper-ink truncate">
+                    {fp.title}
+                  </div>
+                  <div className="text-[10px] text-paper-ink/65 truncate mt-0.5">
+                    {fp.visitedAt.slice(0, 10)} · {fp.cityName || fp.countryCode || '已踩點'}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 }
-

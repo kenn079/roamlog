@@ -13,6 +13,7 @@ import type {
   TripItem,
   WeatherInfo,
 } from '../../shared/types';
+import { compressImage } from './image';
 
 const STORAGE_KEY = 'roamlog_static_store_v1';
 
@@ -686,12 +687,15 @@ export const api = {
     return requestOrFallback(
       '/api/photos',
       { method: 'POST', body: JSON.stringify({ dataUrl, caption, takenAt }) },
-      () => ({
-        id: uid(),
-        url: dataUrl,
-        caption,
-        takenAt,
-      })
+      async () => {
+        const compressed = await compressImage(dataUrl);
+        return {
+          id: uid(),
+          url: compressed || dataUrl,
+          caption,
+          takenAt,
+        };
+      }
     );
   },
 

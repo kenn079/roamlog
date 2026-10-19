@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Globe, Compass, Download, Upload, MapPin } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Map as MapIcon, Tent, Download, Upload, Sun, Moon } from 'lucide-react';
 import { api } from './lib/api';
+import { useTheme } from './lib/theme';
+import { TentMark } from './components/CampDecor';
 import { StatsBar } from './components/StatsBar';
 import { WorldMapView } from './components/WorldMapView';
 import { PolaroidModal } from './components/PolaroidModal';
@@ -18,6 +20,7 @@ import type {
 } from '../shared/types';
 
 export function App(): React.ReactElement {
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'world' | 'trips'>('world');
   const [stats, setStats] = useState<FootprintStats>({
     countryCount: 0,
@@ -39,6 +42,8 @@ export function App(): React.ReactElement {
     tripDayId: string;
   } | null>(null);
   const [retroImportOpen, setRetroImportOpen] = useState(false);
+
+  const handleSelectFootprint = useCallback((fp: Footprint) => setSelectedFootprint(fp), []);
 
   async function loadAll(currentFilter: FootprintFilter = filter) {
     try {
@@ -87,70 +92,62 @@ export function App(): React.ReactElement {
     loadAll(filter);
   }
 
+  const tabClass = (active: boolean) =>
+    `flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+      active ? 'bg-accent text-on-accent shadow-sm' : 'text-ink-soft hover:text-ink'
+    }`;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-canvas text-ink flex flex-col">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20">
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold tracking-tight text-white">
-              RoamLog
-            </h1>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
+      <header className="sticky top-0 z-30 bg-canvas/85 backdrop-blur-md border-b border-line px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <TentMark className="w-9 h-9 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-display text-lg leading-tight text-ink">RoamLog</h1>
+            <p className="text-[11px] text-ink-faint hidden sm:block">
               點亮世界地圖 × 拍立得回憶卡 × 獨立旅程日誌
             </p>
           </div>
         </div>
 
         {/* Center Mode Switcher */}
-        <nav className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('world')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              activeTab === 'world'
-                ? 'bg-amber-500 text-slate-950 shadow'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            🌍 世界足跡庫
+        <nav className="flex items-center bg-surface-2 border border-line rounded-full p-1">
+          <button type="button" onClick={() => setActiveTab('world')} className={tabClass(activeTab === 'world')}>
+            <MapIcon className="w-4 h-4" />
+            世界足跡庫
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('trips')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              activeTab === 'trips'
-                ? 'bg-amber-500 text-slate-950 shadow'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Compass className="w-4 h-4" />
-            🎒 我的旅程本 ({trips.length})
+          <button type="button" onClick={() => setActiveTab('trips')} className={tabClass(activeTab === 'trips')}>
+            <Tent className="w-4 h-4" />
+            我的旅程本 ({trips.length})
           </button>
         </nav>
 
-        {/* Backup Export / Import */}
-        <div className="flex items-center gap-2">
+        {/* Theme + Backup Export / Import */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'light' ? '切換深色模式' : '切換明亮模式'}
+            title={theme === 'light' ? '切換深色模式' : '切換明亮模式'}
+            className="btn-ghost p-2"
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-sun" />}
+          </button>
+
           <button
             type="button"
             onClick={handleExportBackup}
             title="匯出完整 JSON 備份"
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs flex items-center gap-1 cursor-pointer"
+            className="btn-ghost p-2 text-xs"
           >
-            <Download className="w-4 h-4 text-amber-400" />
+            <Download className="w-4 h-4" />
             <span className="hidden md:inline">匯出備份</span>
           </button>
 
-          <label
-            title="匯入 JSON 備份"
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs flex items-center gap-1 cursor-pointer"
-          >
-            <Upload className="w-4 h-4 text-sky-400" />
+          <label title="匯入 JSON 備份" className="btn-ghost p-2 text-xs">
+            <Upload className="w-4 h-4" />
             <span className="hidden md:inline">還原備份</span>
             <input
               type="file"
@@ -189,7 +186,8 @@ export function App(): React.ReactElement {
                 footprints={footprints}
                 visitedCountryCodes={stats.visitedCountryCodes}
                 routeCoordinates={routeCoordinates}
-                onSelectFootprint={(fp) => setSelectedFootprint(fp)}
+                theme={theme}
+                onSelectFootprint={handleSelectFootprint}
                 onMapClick={(coords) => {
                   setCheckInCoords(coords);
                   setPreselectedTripDay(null);
@@ -203,7 +201,7 @@ export function App(): React.ReactElement {
             trips={trips}
             companions={companions}
             onRefresh={() => loadAll(filter)}
-            onSelectFootprint={(fp) => setSelectedFootprint(fp)}
+            onSelectFootprint={handleSelectFootprint}
             onOpenLiveCheckIn={(tripId, tripDayId) => {
               setCheckInCoords(null);
               setPreselectedTripDay({ tripId, tripDayId });

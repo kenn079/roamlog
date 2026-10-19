@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { compressImage } from '../lib/image';
 import type {
   Companion,
   Coordinates,
@@ -138,21 +139,21 @@ export function CheckInModal({
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     for (const file of files) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = String(reader.result || '');
-        if (!dataUrl) return;
+      try {
+        const compressed = await compressImage(file);
+        if (!compressed) continue;
         try {
-          const uploaded = await api.uploadPhoto(dataUrl, file.name);
+          const uploaded = await api.uploadPhoto(compressed, file.name);
           setPhotos((prev) => [...prev, uploaded]);
         } catch {
           setPhotos((prev) => [
             ...prev,
-            { id: `local-${Date.now()}`, url: dataUrl, caption: file.name },
+            { id: `local-${Date.now()}`, url: compressed, caption: file.name },
           ]);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        // Ignore corrupted file upload
+      }
     }
   }
 
@@ -216,17 +217,17 @@ export function CheckInModal({
   const activeTrip = trips.find((t) => t.id === selectedTripId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 text-slate-100 shadow-2xl my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="w-full max-w-lg panel p-6 text-ink my-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-amber-400" />
+          <h2 className="font-display text-lg font-bold flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-accent" />
             打卡踩點 / 新增地標回憶
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+            className="btn-ghost p-1.5"
           >
             <X className="w-5 h-5" />
           </button>
@@ -240,38 +241,38 @@ export function CheckInModal({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜尋地標名稱（如：清水寺、巴黎鐵塔）..."
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              className="field flex-1 px-3.5 py-2 text-sm"
             />
             <button
               type="button"
               onClick={handleSearch}
               disabled={searching}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-medium flex items-center gap-1.5 cursor-pointer"
+              className="btn-soft px-3.5 py-2 text-sm"
             >
-              <Search className="w-4 h-4 text-amber-400" />
+              <Search className="w-4 h-4 text-accent" />
               搜尋
             </button>
             <button
               type="button"
               onClick={handleUseCurrentGps}
               title="使用目前 GPS 定位"
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm flex items-center cursor-pointer"
+              className="btn-soft px-3 py-2 text-sm"
             >
-              <Navigation className="w-4 h-4 text-sky-400" />
+              <Navigation className="w-4 h-4 text-moss" />
             </button>
           </div>
 
           {searchResults.length > 0 && (
-            <div className="mt-2 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-700/60 max-h-44 overflow-y-auto">
+            <div className="mt-2 bg-surface-2 border border-line rounded-2xl overflow-hidden divide-y divide-line max-h-44 overflow-y-auto">
               {searchResults.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSelectPlace(item)}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-slate-700/70 transition flex flex-col cursor-pointer"
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-surface transition flex flex-col cursor-pointer"
                 >
-                  <span className="text-sm font-semibold text-amber-300">{item.title}</span>
-                  <span className="text-xs text-slate-400 truncate">{item.displayName}</span>
+                  <span className="text-sm font-semibold text-accent">{item.title}</span>
+                  <span className="text-xs text-ink-soft truncate">{item.displayName}</span>
                 </button>
               ))}
             </div>
@@ -282,28 +283,30 @@ export function CheckInModal({
           {/* Title & Location Badge */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">地標名稱 *</label>
+              <label className="block text-xs text-ink-soft mb-1">地標名稱 *</label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="輸入地標名稱"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                className="field w-full px-3 py-2 text-sm"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-slate-400">造訪日期</label>
+                <label className="text-xs text-ink-soft">造訪日期</label>
                 <button
                   type="button"
                   onClick={() => {
                     const nextMode = !monthOnlyMode;
                     setMonthOnlyMode(nextMode);
-                    setVisitedAt((prev) => (nextMode ? prev.slice(0, 7) : `${prev.slice(0, 7)}-01`));
+                    setVisitedAt((prev) =>
+                      nextMode ? prev.slice(0, 7) : `${prev.slice(0, 7)}-01`
+                    );
                   }}
-                  className="text-[11px] text-amber-400 hover:underline cursor-pointer"
+                  className="text-[11px] text-accent hover:underline cursor-pointer"
                 >
                   {monthOnlyMode ? '切換完整日期' : '只記得年月'}
                 </button>
@@ -315,43 +318,46 @@ export function CheckInModal({
                   setVisitedAt(e.target.value);
                   triggerEnrich(coordinates, e.target.value);
                 }}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                className="field w-full px-3 py-2 text-sm"
               />
             </div>
           </div>
 
           {/* Auto Weather & Location Info Strip */}
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="flex items-center gap-2 text-slate-300">
-              <MapPin className="w-4 h-4 text-emerald-400" />
+          <div className="bg-surface-2/80 border border-line rounded-2xl p-3 flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-2 text-ink">
+              <MapPin className="w-4 h-4 text-moss" />
               <span>
                 {[cityName, countryName || countryCode].filter(Boolean).join(' · ') ||
                   `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+            <div className="flex items-center gap-1.5 text-accent font-medium">
               <CloudSun className="w-4 h-4" />
               {weather ? (
                 <span>
                   {weather.icon} {weather.tempC}°C {weather.conditionText}
                 </span>
               ) : (
-                <span className="text-slate-400">自動抓取天氣中 / 可選填</span>
+                <span className="text-ink-faint">自動抓取天氣中 / 可選填</span>
               )}
             </div>
           </div>
 
           {/* Photo Upload & Preview */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">拍立得照片</label>
+            <label className="block text-xs text-ink-soft mb-1.5">拍立得照片</label>
             <div className="flex items-center gap-2 flex-wrap">
               {photos.map((p) => (
-                <div key={p.id} className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700">
+                <div
+                  key={p.id}
+                  className="w-16 h-16 rounded-xl overflow-hidden border border-line"
+                >
                   <img src={p.url} alt="" className="w-full h-full object-cover" />
                 </div>
               ))}
-              <label className="w-16 h-16 rounded-lg border border-dashed border-slate-600 hover:border-amber-400 flex flex-col items-center justify-center text-slate-400 hover:text-amber-300 cursor-pointer transition">
+              <label className="w-16 h-16 rounded-xl border border-dashed border-line hover:border-accent flex flex-col items-center justify-center text-ink-soft hover:text-accent cursor-pointer transition bg-surface-2/50">
                 <Camera className="w-5 h-5" />
                 <span className="text-[10px] mt-0.5">新增照片</span>
                 <input
@@ -368,7 +374,7 @@ export function CheckInModal({
           {/* Note & Star Rating */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">隨筆短評</label>
+              <label className="text-xs text-ink-soft">隨筆短評</label>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -380,8 +386,8 @@ export function CheckInModal({
                     <Star
                       className={`w-4 h-4 ${
                         (rating ?? 0) >= star
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'text-slate-600'
+                          ? 'fill-sun text-sun'
+                          : 'text-ink-faint/40'
                       }`}
                     />
                   </button>
@@ -393,13 +399,13 @@ export function CheckInModal({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="寫下一兩句當下的心情或特別回憶..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500"
+              className="field w-full px-3.5 py-2 text-sm"
             />
           </div>
 
           {/* Companions Selector */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5 flex items-center gap-1">
+            <label className="block text-xs text-ink-soft mb-1.5 flex items-center gap-1">
               <Users className="w-3.5 h-3.5" />
               同行旅伴
             </label>
@@ -410,12 +416,9 @@ export function CheckInModal({
                   <button
                     key={c.id}
                     type="button"
+                    data-active={active}
                     onClick={() => toggleCompanion(c.id)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition cursor-pointer ${
-                      active
-                        ? 'bg-amber-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-300 border border-slate-700'
-                    }`}
+                    className="chip px-2.5 py-1 text-xs"
                   >
                     {c.name}
                   </button>
@@ -428,14 +431,14 @@ export function CheckInModal({
                 value={newCompanionName}
                 onChange={(e) => setNewCompanionName(e.target.value)}
                 placeholder="新增旅伴標籤（如：家人、小美、獨旅）"
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                className="field flex-1 px-3 py-1.5 text-xs"
               />
               <button
                 type="button"
                 onClick={handleAddCompanion}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-amber-300 flex items-center gap-1 cursor-pointer"
+                className="btn-soft px-3 py-1.5 text-xs"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-accent" />
                 新增旅伴
               </button>
             </div>
@@ -445,14 +448,14 @@ export function CheckInModal({
           {trips.length > 0 && (
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">歸屬旅程（選填）</label>
+                <label className="block text-xs text-ink-soft mb-1">歸屬旅程（選填）</label>
                 <select
                   value={selectedTripId}
                   onChange={(e) => {
                     setSelectedTripId(e.target.value);
                     setSelectedTripDayId('');
                   }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                  className="field w-full px-2.5 py-1.5 text-xs"
                 >
                   <option value="">獨立足跡（不歸屬特定旅程）</option>
                   {trips.map((t) => (
@@ -465,11 +468,11 @@ export function CheckInModal({
 
               {activeTrip && (
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">旅程天數</label>
+                  <label className="block text-xs text-ink-soft mb-1">旅程天數</label>
                   <select
                     value={selectedTripDayId}
                     onChange={(e) => setSelectedTripDayId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                    className="field w-full px-2.5 py-1.5 text-xs"
                   >
                     <option value="">不指定天數</option>
                     {activeTrip.days.map((d) => (
@@ -483,18 +486,14 @@ export function CheckInModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 cursor-pointer"
-            >
+          <div className="flex justify-end gap-2 pt-3 border-t border-line">
+            <button type="button" onClick={onClose} className="btn-soft px-4 py-2 text-sm">
               取消
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm cursor-pointer"
+              className="btn-primary px-5 py-2 text-sm"
             >
               {saving ? '儲存中...' : '儲存踩點'}
             </button>

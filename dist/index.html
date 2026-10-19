@@ -3,13 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#020617" />
+    <meta name="theme-color" content="#f6f1e7" />
     <link rel="manifest" href="./manifest.json" />
-    <title>RoamLog — 點亮世界與旅程紀錄</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Huninn&display=swap"
+      rel="stylesheet"
+    />
+    <title>RoamLog — 點亮世界與旅程日誌</title>
     <script type="module" crossorigin src="./assets/app.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index.css">
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased">
+  <body class="bg-canvas text-ink antialiased">
     <div id="root"></div>
     <script>
       (function () {
@@ -19,15 +25,15 @@
         if (isStaticPages && !hasBuiltScript) {
           var css = document.createElement('link');
           css.rel = 'stylesheet';
-          css.href = './dist/assets/index.css?v=20261020-3';
+          css.href = './dist/assets/index.css?v=20261020-4';
           document.head.appendChild(css);
 
           var js = document.createElement('script');
           js.type = 'module';
-          js.src = './dist/assets/app.js?v=20261020-3';
+          js.src = './dist/assets/app.js?v=20261020-4';
           document.body.appendChild(js);
         }
       })();
-    </script>
+    </script>
   </body>
 </html>

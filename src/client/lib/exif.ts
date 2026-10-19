@@ -1,5 +1,6 @@
 import exifr from 'exifr';
 import type { Coordinates } from '../../shared/types';
+import { compressImage } from './image';
 
 export interface ParsedPhotoDraft {
   id: string;
@@ -10,17 +11,8 @@ export interface ParsedPhotoDraft {
   suggestedTitle: string;
 }
 
-function defaultReadDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (typeof FileReader === 'undefined') {
-      resolve('');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+async function defaultReadDataUrl(blob: Blob): Promise<string> {
+  return compressImage(blob);
 }
 
 function defaultParseExif(blob: Blob): Promise<any> {
