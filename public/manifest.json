@@ -1,0 +1,10 @@
+{
+  "name": "WanderLight 足跡手札",
+  "short_name": "足跡手札",
+  "description": "個人旅行踩點成就地圖、拍立得故事卡與動態旅程日誌",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#f59e0b",
+  "icons": []
+}
