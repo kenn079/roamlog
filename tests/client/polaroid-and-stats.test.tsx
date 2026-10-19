@@ -65,4 +65,51 @@ describe('StatsBar & PolaroidModal', () => {
     expect(screen.getByText(/19°C/)).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
+
+  it('renders a clear trip filter button when filter.tripId is active and clears tripId on click', () => {
+    const onFilterChange = vi.fn();
+    render(
+      <StatsBar
+        stats={sampleStats}
+        companions={[]}
+        filter={{ tripId: 'trip-123', year: '2024' }}
+        onFilterChange={onFilterChange}
+        onOpenCheckIn={() => {}}
+        onOpenRetroImport={() => {}}
+      />
+    );
+
+    const clearBtn = screen.getByRole('button', { name: /清除旅程篩選/i });
+    fireEvent.click(clearBtn);
+    expect(onFilterChange).toHaveBeenCalledWith({ year: '2024', tripId: undefined });
+  });
+
+  it('createFootprintMarkerElement safely renders titles with HTML special characters via textContent', async () => {
+    if (!window.URL.createObjectURL) {
+      window.URL.createObjectURL = () => 'blob:mock';
+    }
+    const { createFootprintMarkerElement } = await import('../../src/client/components/WorldMapView');
+    const maliciousFp: Footprint = {
+      id: 'fp-xss',
+      title: '<img src=x onerror=alert(1)>Café & Bar',
+      coordinates: { lat: 35.0, lng: 135.0 },
+      countryCode: 'JP',
+      countryName: 'Japan',
+      cityName: 'Kyoto',
+      visitedAt: '2024-11-15',
+      photos: [],
+      note: '',
+      rating: 5,
+      weather: null,
+      companions: [],
+      tripId: null,
+      tripDayId: null,
+      extensions: {},
+      createdAt: '2024-11-15T10:00:00Z',
+    };
+
+    const el = createFootprintMarkerElement(maliciousFp, () => {});
+    expect(el.querySelectorAll('img')).toHaveLength(0);
+    expect(el.textContent).toContain('<img src=x onerror=alert(1)>Café & Bar');
+  });
 });

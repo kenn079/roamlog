@@ -115,6 +115,19 @@ export function StatsBar({
               </option>
             ))}
           </select>
+
+          {filter.tripId && (
+            <>
+              <span className="text-slate-600">|</span>
+              <button
+                type="button"
+                onClick={() => onFilterChange({ ...filter, tripId: undefined })}
+                className="px-2 py-0.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-xs text-sky-300 font-semibold cursor-pointer"
+              >
+                清除旅程篩選 ×
+              </button>
+            </>
+          )}
         </div>
 
         <button

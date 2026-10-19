@@ -91,11 +91,33 @@ export function TripsView({
   }
 
   async function handleQuickCheckInStop(item: TripItem) {
-    const coords: Coordinates = item.coordinates ?? { lat: 25.0339, lng: 121.5645 };
+    let coords: Coordinates | null = item.coordinates;
+    let countryCode: string | undefined;
+    let countryName: string | undefined;
+    let cityName: string | undefined;
+
+    if (!coords) {
+      try {
+        const found = await api.searchPlaces(item.title);
+        if (found.length > 0) {
+          coords = found[0].coordinates;
+          countryCode = found[0].countryCode;
+          countryName = found[0].countryName;
+          cityName = found[0].cityName;
+        }
+      } catch {
+        // Fallback if search fails offline
+      }
+    }
+
+    const finalCoords: Coordinates = coords ?? { lat: 25.0339, lng: 121.5645 };
     const visitedAt = activeDay?.date || new Date().toISOString().slice(0, 10);
     await api.checkInTripItem(item.id, {
       title: item.title,
-      coordinates: coords,
+      coordinates: finalCoords,
+      countryCode,
+      countryName,
+      cityName,
       visitedAt,
       note: item.note ?? '',
     });

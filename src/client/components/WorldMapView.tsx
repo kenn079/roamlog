@@ -15,6 +15,52 @@ export interface WorldMapViewProps {
 const COUNTRIES_GEOJSON_URL =
   'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson';
 
+export function createFootprintMarkerElement(
+  fp: Footprint,
+  onSelectFootprint: (footprint: Footprint) => void
+): HTMLButtonElement {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'group relative flex flex-col items-center focus:outline-none cursor-pointer';
+  el.title = fp.title;
+
+  const card = document.createElement('div');
+  card.className =
+    'w-11 h-11 rounded-sm bg-[#faf6f0] p-1 shadow-lg border border-amber-300 group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden';
+
+  const thumb = fp.photos[0]?.url;
+  if (thumb) {
+    const img = document.createElement('img');
+    img.src = thumb;
+    img.alt = fp.title;
+    img.className = 'w-full h-7 object-cover rounded-xs';
+    card.appendChild(img);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'w-full h-7 bg-amber-500/20 flex items-center justify-center text-xs';
+    placeholder.textContent = '📍';
+    card.appendChild(placeholder);
+  }
+
+  const label = document.createElement('span');
+  label.className = 'text-[8px] font-bold text-stone-800 truncate w-full text-center';
+  label.textContent = fp.title;
+  card.appendChild(label);
+
+  const pinTip = document.createElement('div');
+  pinTip.className = 'w-2 h-2 bg-amber-400 rotate-45 -mt-1 shadow';
+
+  el.appendChild(card);
+  el.appendChild(pinTip);
+
+  el.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    onSelectFootprint(fp);
+  });
+
+  return el;
+}
+
 export function WorldMapView({
   footprints,
   visitedCountryCodes,
@@ -188,30 +234,7 @@ export function WorldMapView({
     markersRef.current = [];
 
     footprints.forEach((fp) => {
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className =
-        'group relative flex flex-col items-center focus:outline-none cursor-pointer';
-      el.title = fp.title;
-
-      const thumb = fp.photos[0]?.url;
-      el.innerHTML = `
-        <div class="w-11 h-11 rounded-sm bg-[#faf6f0] p-1 shadow-lg border border-amber-300 group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden">
-          ${
-            thumb
-              ? `<img src="${thumb}" alt="${fp.title}" class="w-full h-7 object-cover rounded-xs" />`
-              : `<div class="w-full h-7 bg-amber-500/20 flex items-center justify-center text-xs">📍</div>`
-          }
-          <span class="text-[8px] font-bold text-stone-800 truncate w-full text-center">${fp.title}</span>
-        </div>
-        <div class="w-2 h-2 bg-amber-400 rotate-45 -mt-1 shadow"></div>
-      `;
-
-      el.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        onSelectFootprint(fp);
-      });
-
+      const el = createFootprintMarkerElement(fp, onSelectFootprint);
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([fp.coordinates.lng, fp.coordinates.lat])
         .addTo(map);

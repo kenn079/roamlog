@@ -12,6 +12,16 @@ vi.mock('../../src/client/lib/api', () => ({
     createTrip: vi.fn(),
     addTripDay: vi.fn(),
     addTripItem: vi.fn(),
+    searchPlaces: vi.fn().mockResolvedValue([
+      {
+        title: '金閣寺',
+        displayName: 'Kinkaku-ji, Kyoto, Japan',
+        coordinates: { lat: 35.0394, lng: 135.7292 },
+        countryCode: 'JP',
+        countryName: 'Japan',
+        cityName: 'Kyoto',
+      },
+    ]),
     checkInTripItem: vi.fn().mockResolvedValue({
       tripItem: { id: 'item1', footprintId: 'fp1' },
       footprint: { id: 'fp1', title: '伏見稻荷大社' },
@@ -86,6 +96,60 @@ describe('TripsView', () => {
         })
       );
       expect(onRefresh).toHaveBeenCalled();
+    });
+  });
+
+  it('geocodes planned stop title via api.searchPlaces when item.coordinates is null before checking in', async () => {
+    const tripWithoutCoords: Trip = {
+      ...sampleTrip,
+      id: 'trip2',
+      title: '京都北區散步',
+      days: [
+        {
+          id: 'day2',
+          tripId: 'trip2',
+          dayNumber: 1,
+          date: '2024-11-02',
+          title: '北山巡禮',
+          items: [
+            {
+              id: 'item-no-coords',
+              tripId: 'trip2',
+              tripDayId: 'day2',
+              title: '金閣寺',
+              coordinates: null,
+              sortOrder: 1,
+              footprintId: null,
+              footprint: null,
+              extensions: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <TripsView
+        trips={[tripWithoutCoords]}
+        companions={[]}
+        onRefresh={() => {}}
+        onSelectFootprint={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByText('京都北區散步'));
+    fireEvent.click(screen.getByRole('button', { name: /打卡踩點/i }));
+
+    await waitFor(() => {
+      expect(api.searchPlaces).toHaveBeenCalledWith('金閣寺');
+      expect(api.checkInTripItem).toHaveBeenCalledWith(
+        'item-no-coords',
+        expect.objectContaining({
+          coordinates: { lat: 35.0394, lng: 135.7292 },
+          countryCode: 'JP',
+          cityName: 'Kyoto',
+        })
+      );
     });
   });
 });

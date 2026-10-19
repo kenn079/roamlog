@@ -171,7 +171,12 @@ export function App(): React.ReactElement {
               stats={stats}
               companions={companions}
               filter={filter}
-              onFilterChange={setFilter}
+              onFilterChange={(nextFilter) => {
+                setFilter(nextFilter);
+                if (!nextFilter.tripId) {
+                  setRouteCoordinates([]);
+                }
+              }}
               onOpenCheckIn={() => {
                 setCheckInCoords(null);
                 setPreselectedTripDay(null);
