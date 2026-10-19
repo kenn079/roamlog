@@ -17,12 +17,12 @@
         if (isStaticPages && !hasBuiltScript) {
           var css = document.createElement('link');
           css.rel = 'stylesheet';
-          css.href = './dist/assets/index.css';
+          css.href = './dist/assets/index.css?v=20261020-3';
           document.head.appendChild(css);
 
           var js = document.createElement('script');
           js.type = 'module';
-          js.src = './dist/assets/app.js';
+          js.src = './dist/assets/app.js?v=20261020-3';
           document.body.appendChild(js);
         }
       })();
