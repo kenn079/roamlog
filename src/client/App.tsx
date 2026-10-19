@@ -22,7 +22,6 @@ export function App(): React.ReactElement {
   const [stats, setStats] = useState<FootprintStats>({
     countryCount: 0,
     cityCount: 0,
-    landmarkCount: 0,
     visitedCountryCodes: [],
     years: [],
   });
@@ -74,7 +73,7 @@ export function App(): React.ReactElement {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `travel-footprints-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `roamlog-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -98,7 +97,7 @@ export function App(): React.ReactElement {
           </div>
           <div>
             <h1 className="text-base font-extrabold tracking-tight text-white">
-              WanderLight 足跡手札
+              RoamLog
             </h1>
             <p className="text-[11px] text-slate-400 hidden sm:block">
               點亮世界地圖 × 拍立得回憶卡 × 獨立旅程日誌

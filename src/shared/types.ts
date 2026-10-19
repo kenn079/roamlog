@@ -69,7 +69,6 @@ export interface FootprintFilter {
 export interface FootprintStats {
   countryCount: number;
   cityCount: number;
-  landmarkCount: number;
   visitedCountryCodes: string[];
   years: string[];
 }

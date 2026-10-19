@@ -4,11 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#020617" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>WanderLight 足跡手札 — 點亮世界與旅程紀錄</title>
+    <link rel="manifest" href="./manifest.json" />
+    <title>RoamLog — 點亮世界與旅程紀錄</title>
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased">
     <div id="root"></div>
+    <script>
+      (function () {
+        var isStaticPages =
+          location.hostname.endsWith('github.io') || location.protocol === 'file:';
+        var hasBuiltScript = !!document.querySelector('script[src*="assets/app.js"]');
+        if (isStaticPages && !hasBuiltScript) {
+          var css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = './dist/assets/index.css';
+          document.head.appendChild(css);
+
+          var js = document.createElement('script');
+          js.type = 'module';
+          js.src = './dist/assets/app.js';
+          document.body.appendChild(js);
+        }
+      })();
+    </script>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>

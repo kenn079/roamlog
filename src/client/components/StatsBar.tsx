@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Building2, MapPin, Plus, ImagePlus, Filter } from 'lucide-react';
+import { Globe, Building2, Plus, ImagePlus, Filter } from 'lucide-react';
 import type { Companion, FootprintFilter, FootprintStats } from '../../shared/types';
 
 export interface StatsBarProps {
@@ -43,18 +43,6 @@ export function StatsBar({
             <div className="text-xs text-slate-400">探索城市</div>
             <div data-testid="stat-cities" className="text-xl font-bold text-sky-300">
               {stats.cityCount}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">踩點地標</div>
-            <div data-testid="stat-landmarks" className="text-xl font-bold text-emerald-300">
-              {stats.landmarkCount}
             </div>
           </div>
         </div>

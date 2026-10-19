@@ -375,7 +375,6 @@ export class TravelRepository {
     return {
       countryCount: visitedCountryCodes.length,
       cityCount: citySet.size,
-      landmarkCount: rows.length,
       visitedCountryCodes,
       years,
     };

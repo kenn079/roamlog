@@ -11,12 +11,11 @@ describe('StatsBar & PolaroidModal', () => {
   const sampleStats: FootprintStats = {
     countryCount: 3,
     cityCount: 5,
-    landmarkCount: 12,
     visitedCountryCodes: ['JP', 'TW', 'FR'],
     years: ['2024', '2019'],
   };
 
-  it('renders unlocked country, city, and landmark counts and triggers filter changes', () => {
+  it('renders unlocked country and city counts (without landmark count) and triggers filter changes', () => {
     const onFilterChange = vi.fn();
     render(
       <StatsBar
@@ -31,7 +30,7 @@ describe('StatsBar & PolaroidModal', () => {
 
     expect(screen.getByTestId('stat-countries')).toHaveTextContent('3');
     expect(screen.getByTestId('stat-cities')).toHaveTextContent('5');
-    expect(screen.getByTestId('stat-landmarks')).toHaveTextContent('12');
+    expect(screen.queryByTestId('stat-landmarks')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('篩選旅伴'), { target: { value: 'c1' } });
     expect(onFilterChange).toHaveBeenCalledWith({ companionId: 'c1' });

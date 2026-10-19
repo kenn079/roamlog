@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Sparkles } from 'lucide-react';
+import { MapPin, Layers } from 'lucide-react';
 import type { Coordinates, Footprint } from '../../shared/types';
 
 export interface WorldMapViewProps {
@@ -71,11 +71,17 @@ export function WorldMapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+
   const [mapReady, setMapReady] = useState(false);
   const [webglError, setWebglError] = useState(false);
+  const [mapTheme, setMapTheme] = useState<'voyager' | 'dark'>('voyager');
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+
+    let resizeObserver: ResizeObserver | null = null;
 
     try {
       const map = new maplibregl.Map({
@@ -83,6 +89,16 @@ export function WorldMapView({
         style: {
           version: 8,
           sources: {
+            'osm-voyager': {
+              type: 'raster',
+              tiles: [
+                'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              ],
+              tileSize: 256,
+              attribution: '&copy; OpenStreetMap contributors &copy; CARTO (免 API Key)',
+            },
             'carto-dark': {
               type: 'raster',
               tiles: [
@@ -90,16 +106,29 @@ export function WorldMapView({
                 'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
               ],
               tileSize: 256,
-              attribution: '&copy; OpenStreetMap &copy; CARTO',
+              attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             },
           },
           layers: [
+            {
+              id: 'osm-voyager-layer',
+              type: 'raster',
+              source: 'osm-voyager',
+              minzoom: 0,
+              maxzoom: 20,
+              layout: {
+                visibility: 'visible',
+              },
+            },
             {
               id: 'carto-dark-layer',
               type: 'raster',
               source: 'carto-dark',
               minzoom: 0,
               maxzoom: 20,
+              layout: {
+                visibility: 'none',
+              },
             },
           ],
         },
@@ -109,68 +138,82 @@ export function WorldMapView({
 
       map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 
+      if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+        resizeObserver = new ResizeObserver(() => {
+          map.resize();
+        });
+        resizeObserver.observe(containerRef.current);
+      }
+
       map.on('load', () => {
-        map.addSource('visited-countries', {
-          type: 'geojson',
-          data: COUNTRIES_GEOJSON_URL,
-        });
+        map.resize();
 
-        map.addLayer({
-          id: 'visited-countries-fill',
-          type: 'fill',
-          source: 'visited-countries',
-          paint: {
-            'fill-color': '#f59e0b',
-            'fill-opacity': 0.25,
-          },
-          filter: ['in', 'iso_a2', ...(visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__'])],
-        });
+        try {
+          map.addSource('visited-countries', {
+            type: 'geojson',
+            data: COUNTRIES_GEOJSON_URL,
+          });
 
-        map.addLayer({
-          id: 'visited-countries-outline',
-          type: 'line',
-          source: 'visited-countries',
-          paint: {
-            'fill-color': '#fbbf24',
-            'line-color': '#fbbf24',
-            'line-width': 1.5,
-          },
-          filter: ['in', 'iso_a2', ...(visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__'])],
-        });
+          const initialCodes = visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__'];
 
-        map.addSource('trip-route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: [],
+          map.addLayer({
+            id: 'visited-countries-fill',
+            type: 'fill',
+            source: 'visited-countries',
+            paint: {
+              'fill-color': '#f59e0b',
+              'fill-opacity': 0.28,
             },
-          },
-        });
+            filter: ['in', 'iso_a2', ...initialCodes],
+          });
 
-        map.addLayer({
-          id: 'trip-route-line',
-          type: 'line',
-          source: 'trip-route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#38bdf8',
-            'line-width': 3,
-            'line-dasharray': [2, 2],
-          },
-        });
+          map.addLayer({
+            id: 'visited-countries-outline',
+            type: 'line',
+            source: 'visited-countries',
+            paint: {
+              'line-color': '#d97706',
+              'line-width': 1.8,
+            },
+            filter: ['in', 'iso_a2', ...initialCodes],
+          });
+
+          map.addSource('trip-route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [],
+              },
+            },
+          });
+
+          map.addLayer({
+            id: 'trip-route-line',
+            type: 'line',
+            source: 'trip-route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#0284c7',
+              'line-width': 3,
+              'line-dasharray': [2, 2],
+            },
+          });
+        } catch {
+          // Continue even if external GeoJSON fails
+        }
 
         setMapReady(true);
       });
 
       map.on('click', (e) => {
-        if (onMapClick) {
-          onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        if (onMapClickRef.current) {
+          onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
         }
       });
 
@@ -184,12 +227,39 @@ export function WorldMapView({
     }
 
     return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
   }, []);
+
+  // Toggle between Voyager (clear street map) and Dark theme
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    try {
+      if (map.getLayer('osm-voyager-layer')) {
+        map.setLayoutProperty(
+          'osm-voyager-layer',
+          'visibility',
+          mapTheme === 'voyager' ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('carto-dark-layer')) {
+        map.setLayoutProperty(
+          'carto-dark-layer',
+          'visibility',
+          mapTheme === 'dark' ? 'visible' : 'none'
+        );
+      }
+    } catch {
+      // Ignore layout property error before style load
+    }
+  }, [mapTheme, mapReady]);
 
   // Update illuminated country codes filter
   useEffect(() => {
@@ -200,11 +270,15 @@ export function WorldMapView({
       'iso_a2',
       ...(visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__']),
     ];
-    if (map.getLayer('visited-countries-fill')) {
-      map.setFilter('visited-countries-fill', filterExpr);
-    }
-    if (map.getLayer('visited-countries-outline')) {
-      map.setFilter('visited-countries-outline', filterExpr);
+    try {
+      if (map.getLayer('visited-countries-fill')) {
+        map.setFilter('visited-countries-fill', filterExpr);
+      }
+      if (map.getLayer('visited-countries-outline')) {
+        map.setFilter('visited-countries-outline', filterExpr);
+      }
+    } catch {
+      // Ignore filter errors if layer not yet ready
     }
   }, [visitedCountryCodes, mapReady]);
 
@@ -242,14 +316,140 @@ export function WorldMapView({
     });
   }, [footprints, onSelectFootprint]);
 
+  // Project lat/lng to percentage for the non-WebGL interactive fallback map
+  function projectToPercent(coords: Coordinates): { x: number; y: number } {
+    const x = ((coords.lng + 180) / 360) * 100;
+    const y = ((90 - coords.lat) / 180) * 100;
+    return {
+      x: Math.max(2, Math.min(98, x)),
+      y: Math.max(4, Math.min(96, y)),
+    };
+  }
+
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div className="relative w-full flex-1 flex flex-col">
       {!webglError ? (
-        <div ref={containerRef} className="w-full flex-1 min-h-[420px] rounded-2xl overflow-hidden border border-slate-800 shadow-inner" />
+        <div className="relative w-full h-[480px] sm:h-[520px] rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+          <div
+            ref={containerRef}
+            style={{ width: '100%', height: '100%', minHeight: '480px' }}
+            className="w-full h-full"
+          />
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMapTheme((prev) => (prev === 'voyager' ? 'dark' : 'voyager'))}
+              className="px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-slate-700 text-xs font-semibold text-slate-100 flex items-center gap-1.5 shadow-lg cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              {mapTheme === 'voyager' ? '切換深色地圖' : '切換明亮地圖'}
+            </button>
+          </div>
+        </div>
       ) : (
-        <div className="w-full flex-1 min-h-[320px] rounded-2xl bg-slate-900 border border-slate-800 p-6 flex flex-col items-center justify-center text-slate-400">
-          <Sparkles className="w-8 h-8 text-amber-400 mb-2" />
-          <p className="text-sm">已切換為拍立得足跡畫廊檢視模式</p>
+        <div
+          onClick={(e) => {
+            if (!onMapClick) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const relX = (e.clientX - rect.left) / rect.width;
+            const relY = (e.clientY - rect.top) / rect.height;
+            const lng = Number((relX * 360 - 180).toFixed(4));
+            const lat = Number((90 - relY * 180).toFixed(4));
+            onMapClick({ lat, lng });
+          }}
+          className="relative w-full h-[480px] rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden cursor-crosshair select-none"
+        >
+          {/* SVG World Map Fallback (Zero API Key & Zero WebGL Required) */}
+          <svg
+            viewBox="0 0 1000 500"
+            className="w-full h-full object-cover opacity-80"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                <path
+                  d="M 50 0 L 0 0 0 50"
+                  fill="none"
+                  stroke="#1e293b"
+                  strokeWidth="1"
+                />
+              </pattern>
+            </defs>
+            <rect width="1000" height="500" fill="#0f172a" />
+            <rect width="1000" height="500" fill="url(#grid)" />
+            {/* Simplified Continents Silhouette */}
+            <g fill="#1e293b" stroke="#334155" strokeWidth="1.5">
+              {/* North America */}
+              <path d="M80,70 L260,60 L300,150 L230,240 L180,230 L110,150 Z" />
+              {/* South America */}
+              <path d="M240,260 L330,280 L310,430 L260,460 L230,350 Z" />
+              {/* Europe */}
+              <path d="M440,70 L570,65 L590,155 L460,165 L435,120 Z" />
+              {/* Africa */}
+              <path d="M445,180 L585,185 L615,310 L545,410 L485,390 L440,260 Z" />
+              {/* Asia */}
+              <path d="M580,65 L880,75 L900,220 L770,275 L640,240 L590,160 Z" />
+              {/* Taiwan & Japan highlight area */}
+              <circle cx="838" cy="180" r="8" fill="#f59e0b" opacity="0.5" />
+              <path d="M855,135 L878,145 L868,175 L848,165 Z" />
+              {/* Australia */}
+              <path d="M760,320 L880,320 L890,410 L770,415 Z" />
+            </g>
+            {routeCoordinates && routeCoordinates.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="3"
+                strokeDasharray="6,6"
+                points={routeCoordinates
+                  .map((c) => {
+                    const x = ((c.lng + 180) / 360) * 1000;
+                    const y = ((90 - c.lat) / 180) * 500;
+                    return `${x},${y}`;
+                  })
+                  .join(' ')}
+              />
+            )}
+          </svg>
+
+          {/* Interactive Polaroid Pins on 2D Fallback Map */}
+          {footprints.map((fp) => {
+            const pos = projectToPercent(fp.coordinates);
+            return (
+              <button
+                key={fp.id}
+                type="button"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onSelectFootprint(fp);
+                }}
+                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                className="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center cursor-pointer z-10"
+              >
+                <div className="w-11 h-11 rounded-sm bg-[#faf6f0] p-1 shadow-lg border border-amber-300 group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden">
+                  {fp.photos[0]?.url ? (
+                    <img
+                      src={fp.photos[0].url}
+                      alt={fp.title}
+                      className="w-full h-7 object-cover rounded-xs"
+                    />
+                  ) : (
+                    <div className="w-full h-7 bg-amber-500/20 flex items-center justify-center text-xs">
+                      📍
+                    </div>
+                  )}
+                  <span className="text-[8px] font-bold text-stone-800 truncate w-full text-center">
+                    {fp.title}
+                  </span>
+                </div>
+                <div className="w-2 h-2 bg-amber-400 rotate-45 -mt-1 shadow" />
+              </button>
+            );
+          })}
+
+          <div className="absolute bottom-3 left-3 bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+            🌍 互動式世界地圖（免 API Key · 點擊地圖任意位置即可新增打卡）
+          </div>
         </div>
       )}
 
@@ -258,7 +458,7 @@ export function WorldMapView({
         <div className="flex items-center justify-between mb-2 px-1">
           <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-amber-400" />
-            已解鎖地標拍立得 ({footprints.length})
+            已解鎖地標拍立得
           </h3>
           <span className="text-xs text-slate-500">點擊卡片或地圖圖釘查看回憶詳情</span>
         </div>
@@ -306,3 +506,4 @@ export function WorldMapView({
     </div>
   );
 }
+

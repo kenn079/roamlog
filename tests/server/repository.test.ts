@@ -42,7 +42,6 @@ describe('TravelRepository', () => {
     const stats = repo.getStats();
     expect(stats.countryCount).toBe(2);
     expect(stats.cityCount).toBe(2);
-    expect(stats.landmarkCount).toBe(2);
     expect(stats.visitedCountryCodes).toEqual(['JP', 'TW']);
     expect(stats.years).toEqual(['2024', '2019']);
 
