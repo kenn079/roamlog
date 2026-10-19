@@ -89,43 +89,55 @@ export function WorldMapView({
         style: {
           version: 8,
           sources: {
-            'osm-voyager': {
+            'osm-standard': {
               type: 'raster',
-              tiles: [
-                'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              ],
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
               tileSize: 256,
-              attribution: '&copy; OpenStreetMap contributors &copy; CARTO (免 API Key)',
+              attribution: '&copy; OpenStreetMap contributors',
             },
-            'carto-dark': {
+            'arcgis-dark-base': {
               type: 'raster',
               tiles: [
-                'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-                'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
               ],
               tileSize: 256,
-              attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+              attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap contributors',
+            },
+            'arcgis-dark-labels': {
+              type: 'raster',
+              tiles: [
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+              ],
+              tileSize: 256,
             },
           },
           layers: [
             {
-              id: 'osm-voyager-layer',
+              id: 'osm-standard-layer',
               type: 'raster',
-              source: 'osm-voyager',
+              source: 'osm-standard',
               minzoom: 0,
-              maxzoom: 20,
+              maxzoom: 19,
               layout: {
                 visibility: 'visible',
               },
             },
             {
-              id: 'carto-dark-layer',
+              id: 'arcgis-dark-base-layer',
               type: 'raster',
-              source: 'carto-dark',
+              source: 'arcgis-dark-base',
               minzoom: 0,
-              maxzoom: 20,
+              maxzoom: 16,
+              layout: {
+                visibility: 'none',
+              },
+            },
+            {
+              id: 'arcgis-dark-labels-layer',
+              type: 'raster',
+              source: 'arcgis-dark-labels',
+              minzoom: 0,
+              maxzoom: 16,
               layout: {
                 visibility: 'none',
               },
@@ -237,21 +249,28 @@ export function WorldMapView({
     };
   }, []);
 
-  // Toggle between Voyager (clear street map) and Dark theme
+  // Toggle between OpenStreetMap (clear street map) and Dark theme
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     try {
-      if (map.getLayer('osm-voyager-layer')) {
+      if (map.getLayer('osm-standard-layer')) {
         map.setLayoutProperty(
-          'osm-voyager-layer',
+          'osm-standard-layer',
           'visibility',
           mapTheme === 'voyager' ? 'visible' : 'none'
         );
       }
-      if (map.getLayer('carto-dark-layer')) {
+      if (map.getLayer('arcgis-dark-base-layer')) {
         map.setLayoutProperty(
-          'carto-dark-layer',
+          'arcgis-dark-base-layer',
+          'visibility',
+          mapTheme === 'dark' ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('arcgis-dark-labels-layer')) {
+        map.setLayoutProperty(
+          'arcgis-dark-labels-layer',
           'visibility',
           mapTheme === 'dark' ? 'visible' : 'none'
         );
