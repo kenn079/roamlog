@@ -8,6 +8,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   type Auth,
@@ -59,7 +61,7 @@ export function getFirebaseFirestore(): Firestore {
 }
 
 /**
- * 1-Click Google Sign In using Firebase Popup
+ * 1-Click Google Sign In using Firebase Popup with Redirect fallback
  */
 export async function loginWithGoogle(): Promise<User> {
   const auth = getFirebaseAuth();
@@ -67,8 +69,49 @@ export async function loginWithGoogle(): Promise<User> {
   if (typeof provider.setCustomParameters === 'function') {
     provider.setCustomParameters({ prompt: 'select_account' });
   }
-  const result = await signInWithPopup(auth, provider);
-  return result.user;
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
+  } catch (err: any) {
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '您的網域';
+
+    if (err?.code === 'auth/unauthorized-domain') {
+      throw new Error(`【Firebase 尚未授權此網域】請至 Firebase 控制台 > Authentication > 設定 > 已授權的網域，將「${currentHost}」加入授權清單。`);
+    }
+
+    if (err?.code === 'auth/popup-blocked') {
+      if (typeof signInWithRedirect === 'function') {
+        await signInWithRedirect(auth, provider);
+        return new Promise(() => {});
+      }
+    }
+
+    if (err?.code === 'auth/popup-closed-by-user') {
+      throw new Error('登入視窗已被關閉，請重試。');
+    }
+
+    throw err;
+  }
+}
+
+/**
+ * Check if returning from a mobile redirect login
+ */
+export async function checkRedirectResult(): Promise<User | null> {
+  try {
+    const auth = getFirebaseAuth();
+    if (typeof getRedirectResult === 'function') {
+      const result = await getRedirectResult(auth);
+      return result?.user ?? null;
+    }
+  } catch (err: any) {
+    if (err?.code === 'auth/unauthorized-domain') {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '您的網域';
+      console.error(`Firebase unauthorized domain: ${currentHost}`);
+    }
+  }
+  return null;
 }
 
 /**

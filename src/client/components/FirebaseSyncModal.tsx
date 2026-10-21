@@ -62,6 +62,43 @@ export function FirebaseSyncModal({
     }
   }
 
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'kenn079.github.io';
+  const isUnauthorizedDomain = syncErrorMessage?.includes('授權此網域') || syncErrorMessage?.includes('unauthorized-domain');
+
+  const errorBanner = syncErrorMessage ? (
+    <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/30 text-xs text-accent space-y-2 text-left animate-in fade-in duration-150">
+      <div className="flex items-start gap-1.5 font-bold">
+        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-accent" />
+        <span>{syncErrorMessage}</span>
+      </div>
+      {isUnauthorizedDomain && (
+        <div className="text-[11px] text-ink-soft space-y-1.5 pl-5 pt-1 border-t border-accent/20">
+          <p className="font-semibold text-ink">💡 如何將網域加入 Firebase 授權？</p>
+          <ol className="list-decimal list-inside space-y-1 text-ink-faint">
+            <li>
+              前往{' '}
+              <a
+                href="https://console.firebase.google.com/project/roamlog-c9a2e/authentication/settings"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline font-semibold"
+              >
+                Firebase Authentication 設定頁面
+              </a>
+            </li>
+            <li>找到「已授權的網域 (Authorized domains)」，點擊「新增網域」</li>
+            <li>
+              輸入 <strong className="text-ink font-mono px-1 py-0.5 bg-surface-2 rounded border border-line">{currentHost}</strong> 並點擊「新增」
+            </li>
+          </ol>
+          <p className="text-[10px] text-moss pt-0.5">
+            ✓ 新增完成後，重新點擊登入按鈕即可順暢登入！
+          </p>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs">
       <div
@@ -127,12 +164,7 @@ export function FirebaseSyncModal({
               </span>
             </div>
 
-            {syncErrorMessage && (
-              <div className="p-2 rounded-lg bg-accent/10 border border-accent/20 text-[11px] text-accent flex items-start gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>{syncErrorMessage}</span>
-              </div>
-            )}
+            {errorBanner}
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
@@ -166,6 +198,8 @@ export function FirebaseSyncModal({
                 使用個人 Google 帳號登入，在手機與電腦間自動即時同步足跡、心願與旅程，斷網時照常離線記錄。
               </p>
             </div>
+
+            {errorBanner}
 
             <button
               type="button"

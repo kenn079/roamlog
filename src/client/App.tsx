@@ -33,6 +33,7 @@ import {
   loginWithGoogle,
   logoutFirebase,
   onFirebaseAuthState,
+  checkRedirectResult,
   fetchRemoteFirebaseData,
   uploadToFirebase,
   subscribeToFirebaseChanges,
@@ -253,6 +254,16 @@ export function App(): React.ReactElement {
     [firebaseUser, filter]
   );
 
+  // Check redirect result on load (for mobile logins)
+  useEffect(() => {
+    checkRedirectResult().then((user) => {
+      if (user) {
+        setFirebaseUser(user);
+        runSync(user.uid);
+      }
+    });
+  }, []);
+
   // Listen to Firebase Auth state
   useEffect(() => {
     const unsubscribe = onFirebaseAuthState((user) => {
@@ -312,6 +323,7 @@ export function App(): React.ReactElement {
     } catch (err: any) {
       setSyncStatus('error');
       setSyncErrorMessage(err.message || 'Google 登入失敗');
+      setFirebaseSyncModalOpen(true);
     }
   }
 
@@ -600,7 +612,7 @@ export function App(): React.ReactElement {
                           disabled={syncStatus === 'syncing'}
                           className="btn-primary py-1.5 px-2 text-xs flex items-center justify-center gap-1"
                         >
-                          <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                           <span>立即同步</span>
                         </button>
                         <button
