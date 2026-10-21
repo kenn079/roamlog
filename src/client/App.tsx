@@ -13,6 +13,10 @@ import {
   Globe,
   Star,
   EyeOff,
+  Cloud,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from './lib/api';
 import { useTheme } from './lib/theme';
@@ -24,6 +28,9 @@ import { CheckInModal } from './components/CheckInModal';
 import { RetroImportModal } from './components/RetroImportModal';
 import { WishModal } from './components/WishModal';
 import { WishCardModal } from './components/WishCardModal';
+import { GoogleSyncModal } from './components/GoogleSyncModal';
+import { googleDrive } from './lib/googleDrive';
+import { mergeBackupStores } from './lib/syncEngine';
 import { TripsView, computeTripRouteCoordinates } from './components/TripsView';
 import type {
   BackupPayload,
@@ -32,10 +39,26 @@ import type {
   Footprint,
   FootprintFilter,
   FootprintStats,
+  GoogleAuthInfo,
   IlluminationMode,
+  SyncManifest,
+  SyncStatus,
   Trip,
   Wish,
 } from '../shared/types';
+
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem('roamlog_device_id');
+    if (!id) {
+      id = 'dev_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem('roamlog_device_id', id);
+    }
+    return id;
+  } catch {
+    return 'dev_temp';
+  }
+}
 
 export function App(): React.ReactElement {
   const { theme, toggleTheme } = useTheme();
@@ -106,6 +129,31 @@ export function App(): React.ReactElement {
   } | null>(null);
   const [retroImportOpen, setRetroImportOpen] = useState(false);
   const [wishModalOpen, setWishModalOpen] = useState(false);
+  const [googleSyncModalOpen, setGoogleSyncModalOpen] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('roamlog_google_client_id') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [googleAuth, setGoogleAuth] = useState<GoogleAuthInfo | null>(() => {
+    try {
+      const saved = localStorage.getItem('roamlog_google_auth');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('roamlog_last_sync_time') || null;
+    } catch {
+      return null;
+    }
+  });
 
   const handleSelectFootprint = useCallback((fp: Footprint) => setSelectedFootprint(fp), []);
 
@@ -153,16 +201,155 @@ export function App(): React.ReactElement {
     loadAll(filter);
   }, [filter.year, filter.countryCode, filter.companionId, filter.tripId]);
 
+  const runSync = useCallback(
+    async (authOverride?: GoogleAuthInfo) => {
+      const currentAuth = authOverride || googleAuth;
+      if (!currentAuth) {
+        setSyncStatus('idle');
+        return;
+      }
+      setSyncStatus('syncing');
+      setSyncErrorMessage(null);
+
+      try {
+        const localPayload = await api.exportBackup();
+        const remote = await googleDrive.fetchRemoteData(currentAuth);
+
+        let fileIdToUpdate = remote.fileId;
+
+        if (remote.data) {
+          const { merged, localChanged, remoteChanged } = mergeBackupStores(localPayload, remote.data);
+
+          if (localChanged) {
+            await api.importBackup(merged);
+            await loadAll(filter);
+          }
+
+          if (remoteChanged || !fileIdToUpdate) {
+            const manifest: SyncManifest = {
+              version: 1,
+              lastModified: new Date().toISOString(),
+              deviceId: getDeviceId(),
+              photoCount: (merged.footprints || []).reduce((acc, f) => acc + (f.photos?.length || 0), 0),
+            };
+            const uploadRes = await googleDrive.uploadRemoteData(currentAuth, merged, manifest, fileIdToUpdate);
+            fileIdToUpdate = uploadRes.fileId;
+          }
+        } else {
+          const manifest: SyncManifest = {
+            version: 1,
+            lastModified: new Date().toISOString(),
+            deviceId: getDeviceId(),
+            photoCount: (localPayload.footprints || []).reduce((acc, f) => acc + (f.photos?.length || 0), 0),
+          };
+          const uploadRes = await googleDrive.uploadRemoteData(currentAuth, localPayload, manifest);
+          fileIdToUpdate = uploadRes.fileId;
+        }
+
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setLastSyncTime(nowStr);
+        try {
+          localStorage.setItem('roamlog_last_sync_time', nowStr);
+        } catch {
+          // ignore
+        }
+        setSyncStatus('synced');
+      } catch (err: any) {
+        setSyncStatus('error');
+        setSyncErrorMessage(err.message || '雲端同步失敗');
+      }
+    },
+    [googleAuth, filter]
+  );
+
+  useEffect(() => {
+    if (googleClientId) {
+      googleDrive.initGoogleAuth(googleClientId, (newAuth) => {
+        setGoogleAuth(newAuth);
+        try {
+          localStorage.setItem('roamlog_google_auth', JSON.stringify(newAuth));
+        } catch {
+          // ignore
+        }
+      }).catch(() => {
+        // ignore
+      });
+    }
+  }, [googleClientId]);
+
+  useEffect(() => {
+    if (googleAuth) {
+      runSync(googleAuth);
+    }
+    const onOnline = () => {
+      if (googleAuth) runSync(googleAuth);
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [googleAuth?.accessToken]);
+
+  function handleSaveClientId(id: string) {
+    setGoogleClientId(id);
+    try {
+      localStorage.setItem('roamlog_google_client_id', id);
+    } catch {
+      // ignore
+    }
+    if (id) {
+      googleDrive.initGoogleAuth(id, (newAuth) => {
+        setGoogleAuth(newAuth);
+        try {
+          localStorage.setItem('roamlog_google_auth', JSON.stringify(newAuth));
+        } catch {
+          // ignore
+        }
+      }).catch(() => {});
+    }
+  }
+
+  async function handleGoogleLogin() {
+    if (!googleClientId) {
+      setGoogleSyncModalOpen(true);
+      return;
+    }
+    try {
+      const auth = await googleDrive.requestGoogleLogin();
+      setGoogleAuth(auth);
+      try {
+        localStorage.setItem('roamlog_google_auth', JSON.stringify(auth));
+      } catch {
+        // ignore
+      }
+      await runSync(auth);
+    } catch (err: any) {
+      setSyncStatus('error');
+      setSyncErrorMessage(err.message || 'Google 登入失敗');
+    }
+  }
+
+  function handleDisconnectGoogle() {
+    setGoogleAuth(null);
+    setSyncStatus('idle');
+    setSyncErrorMessage(null);
+    try {
+      localStorage.removeItem('roamlog_google_auth');
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleDeleteFootprint(id: string) {
     await api.deleteFootprint(id);
     setSelectedFootprint(null);
     await loadAll(filter);
+    if (googleAuth) runSync();
   }
 
   async function handleDeleteWish(id: string) {
     await api.deleteWish(id);
     setSelectedWish(null);
     await loadAll(filter);
+    if (googleAuth) runSync();
   }
 
   function handleStartFulfillWish(wish: Wish) {
@@ -225,8 +412,44 @@ export function App(): React.ReactElement {
           </button>
         </nav>
 
-        {/* Theme + Settings Dropdown Popover */}
+        {/* Sync Pill + Theme + Settings Dropdown Popover */}
         <div className="flex items-center gap-1.5 relative">
+          {googleAuth ? (
+            <button
+              type="button"
+              onClick={() => setGoogleSyncModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                syncStatus === 'syncing'
+                  ? 'bg-accent/15 text-accent border border-accent/30'
+                  : syncStatus === 'error'
+                  ? 'bg-red-500/15 text-red-500 border border-red-500/30'
+                  : 'bg-moss/15 text-moss border border-moss/30'
+              }`}
+              title={`Google 雲端同步 (${googleAuth.email || '已連結'}) - 最後同步: ${lastSyncTime || '剛剛'}`}
+            >
+              {syncStatus === 'syncing' ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : syncStatus === 'error' ? (
+                <AlertCircle className="w-3.5 h-3.5" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {syncStatus === 'syncing' ? '同步中' : syncStatus === 'error' ? '同步異常' : '已同步'}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setGoogleSyncModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-2 hover:bg-surface border border-line text-ink-soft hover:text-ink transition cursor-pointer"
+              title="Google 雲端雙向同步"
+            >
+              <Cloud className="w-3.5 h-3.5 text-accent" />
+              <span className="hidden sm:inline">雲端同步</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={toggleTheme}
@@ -343,6 +566,71 @@ export function App(): React.ReactElement {
                     {showWishes
                       ? '在地圖上以金色星標顯示待訪的心願地點。'
                       : '僅顯示已解鎖足跡，暫時隱藏心願星標。'}
+                  </p>
+                </div>
+
+                {/* Section 2.5: Google 雲端雙向同步 */}
+                <div className="space-y-2 border-t border-line pt-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-ink-soft block">
+                      Google 雲端雙向同步
+                    </label>
+                    {googleAuth && (
+                      <span className="text-[10px] text-moss font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        已連線
+                      </span>
+                    )}
+                  </div>
+
+                  {googleAuth ? (
+                    <div className="p-2.5 bg-surface-2 border border-line rounded-xl space-y-2">
+                      <div className="text-[11px] text-ink font-semibold truncate">
+                        {googleAuth.email}
+                      </div>
+                      <div className="text-[10px] text-ink-faint">
+                        最後同步：{lastSyncTime || '剛剛'}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            runSync();
+                            setSettingsOpen(false);
+                          }}
+                          disabled={syncStatus === 'syncing'}
+                          className="btn-primary py-1.5 px-2 text-xs flex items-center justify-center gap-1"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                          <span>立即同步</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettingsOpen(false);
+                            setGoogleSyncModalOpen(true);
+                          }}
+                          className="btn-soft py-1.5 px-2 text-xs flex items-center justify-center gap-1"
+                        >
+                          <span>管理同步</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettingsOpen(false);
+                        setGoogleSyncModalOpen(true);
+                      }}
+                      className="btn-soft w-full py-2 px-3 text-xs flex items-center justify-center gap-1.5 text-accent"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>設定 Google 雲端同步</span>
+                    </button>
+                  )}
+                  <p className="text-[11px] text-ink-faint leading-relaxed">
+                    透過個人 Google Drive AppData 空間儲存，手機電腦無縫同步。
                   </p>
                 </div>
 
@@ -466,7 +754,10 @@ export function App(): React.ReactElement {
 
       {wishModalOpen && (
         <WishModal
-          onCreated={() => loadAll(filter)}
+          onCreated={async () => {
+            await loadAll(filter);
+            if (googleAuth) runSync();
+          }}
           onClose={() => setWishModalOpen(false)}
         />
       )}
@@ -492,6 +783,7 @@ export function App(): React.ReactElement {
               setFulfillingWish(null);
             }
             await loadAll(filter);
+            if (googleAuth) runSync();
           }}
           onCompanionCreated={(c) => setCompanions((prev) => [...prev, c])}
           onClose={() => {
@@ -505,8 +797,29 @@ export function App(): React.ReactElement {
         <RetroImportModal
           companions={companions}
           trips={trips}
-          onImported={() => loadAll(filter)}
+          onImported={async () => {
+            await loadAll(filter);
+            if (googleAuth) runSync();
+          }}
           onClose={() => setRetroImportOpen(false)}
+        />
+      )}
+
+      {googleSyncModalOpen && (
+        <GoogleSyncModal
+          onClose={() => setGoogleSyncModalOpen(false)}
+          onSaveClientId={handleSaveClientId}
+          onLogin={handleGoogleLogin}
+          clientId={googleClientId}
+          isLoggedIn={!!googleAuth}
+          userEmail={googleAuth?.email}
+          userName={googleAuth?.name}
+          userPicture={googleAuth?.picture}
+          lastSyncedAt={lastSyncTime}
+          onManualSync={() => runSync()}
+          onDisconnect={handleDisconnectGoogle}
+          syncStatus={syncStatus}
+          syncErrorMessage={syncErrorMessage}
         />
       )}
     </div>
