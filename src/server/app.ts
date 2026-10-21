@@ -188,6 +188,15 @@ export function createApp(
     }
   });
 
+  app.delete('/api/trip-items/:itemId', (req, res) => {
+    const ok = repo.deleteTripItem(req.params.itemId);
+    if (!ok) {
+      res.status(404).json({ error: 'TripItem not found' });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
   app.post('/api/enrich', async (req, res) => {
     const { coordinates, visitedAt } = req.body ?? {};
     if (!coordinates || typeof coordinates.lat !== 'number' || typeof coordinates.lng !== 'number') {

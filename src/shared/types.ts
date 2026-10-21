@@ -73,6 +73,8 @@ export interface FootprintStats {
   years: string[];
 }
 
+export type IlluminationMode = 'city' | 'country';
+
 export type TripStatus = 'planning' | 'active' | 'completed';
 
 export interface TripItem {

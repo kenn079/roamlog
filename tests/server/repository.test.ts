@@ -132,4 +132,33 @@ describe('TravelRepository', () => {
     expect(repo2.listFootprints()[0].companions[0].name).toBe('Solo');
     repo2.close();
   });
+
+  it('deletes checked-in trip items and linked footprints cleanly', () => {
+    const trip = repo.createTrip({ title: 'Delete Test Trip', dayCount: 1 });
+    const dayId = trip.days[0].id;
+
+    const live1 = repo.addLiveTripCheckIn(dayId, {
+      title: 'Stop 1',
+      coordinates: { lat: 25.0, lng: 121.5 },
+      visitedAt: '2026-10-20',
+    });
+    const live2 = repo.addLiveTripCheckIn(dayId, {
+      title: 'Stop 2',
+      coordinates: { lat: 25.1, lng: 121.6 },
+      visitedAt: '2026-10-20',
+    });
+
+    expect(repo.getTrip(trip.id)!.days[0].items).toHaveLength(2);
+    expect(repo.listFootprints()).toHaveLength(2);
+
+    // Deleting via deleteTripItem removes both the TripItem and its linked Footprint
+    expect(repo.deleteTripItem(live1.tripItem.id)).toBe(true);
+    expect(repo.getTrip(trip.id)!.days[0].items).toHaveLength(1);
+    expect(repo.listFootprints()).toHaveLength(1);
+
+    // Deleting via deleteFootprint also removes the associated TripItem
+    expect(repo.deleteFootprint(live2.footprint.id)).toBe(true);
+    expect(repo.getTrip(trip.id)!.days[0].items).toHaveLength(0);
+    expect(repo.listFootprints()).toHaveLength(0);
+  });
 });

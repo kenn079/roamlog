@@ -1,18 +1,120 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin } from 'lucide-react';
+import { MapPin, Trash2 } from 'lucide-react';
 import { EmptyCamp, tiltFor } from './CampDecor';
 import type { Theme } from '../lib/theme';
-import type { Coordinates, Footprint } from '../../shared/types';
+import type { Coordinates, Footprint, IlluminationMode } from '../../shared/types';
 
 export interface WorldMapViewProps {
   footprints: Footprint[];
   visitedCountryCodes: string[];
   routeCoordinates?: Coordinates[];
   theme?: Theme;
+  illuminationMode?: IlluminationMode;
   onSelectFootprint: (footprint: Footprint) => void;
+  onDeleteFootprint?: (id: string) => void;
   onMapClick?: (coords: Coordinates) => void;
+}
+
+export interface VisitedCityGroup {
+  name: string;
+  countryCode: string;
+  center: Coordinates;
+  footprintCount: number;
+}
+
+export function createGeoCircle(
+  center: Coordinates,
+  radiusKm: number = 25,
+  points: number = 32
+): number[][] {
+  const coords: number[][] = [];
+  const kmPerLat = 111.32;
+  const kmPerLng = 111.32 * Math.cos((center.lat * Math.PI) / 180);
+  for (let i = 0; i <= points; i++) {
+    const angle = (i * 2 * Math.PI) / points;
+    const dx = radiusKm * Math.cos(angle);
+    const dy = radiusKm * Math.sin(angle);
+    const lat = center.lat + dy / kmPerLat;
+    const lng = center.lng + dx / kmPerLng;
+    coords.push([lng, lat]);
+  }
+  return coords;
+}
+
+export function groupFootprintsByCity(footprints: Footprint[]): VisitedCityGroup[] {
+  const map = new Map<
+    string,
+    { name: string; countryCode: string; lats: number[]; lngs: number[] }
+  >();
+
+  for (const fp of footprints) {
+    const rawName = (fp.cityName || fp.countryName || fp.title || '').trim();
+    if (!rawName) continue;
+    const key = `${(fp.countryCode || '').toUpperCase()}:${rawName.toLowerCase()}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.lats.push(fp.coordinates.lat);
+      existing.lngs.push(fp.coordinates.lng);
+    } else {
+      map.set(key, {
+        name: rawName,
+        countryCode: (fp.countryCode || '').toUpperCase(),
+        lats: [fp.coordinates.lat],
+        lngs: [fp.coordinates.lng],
+      });
+    }
+  }
+
+  const results: VisitedCityGroup[] = [];
+  for (const item of map.values()) {
+    const avgLat = item.lats.reduce((a, b) => a + b, 0) / item.lats.length;
+    const avgLng = item.lngs.reduce((a, b) => a + b, 0) / item.lngs.length;
+    results.push({
+      name: item.name,
+      countryCode: item.countryCode,
+      center: { lat: avgLat, lng: avgLng },
+      footprintCount: item.lats.length,
+    });
+  }
+  return results;
+}
+
+export function buildCitiesGeoJson(cities: VisitedCityGroup[]) {
+  const features: any[] = [];
+  for (const c of cities) {
+    features.push({
+      type: 'Feature',
+      properties: {
+        type: 'polygon',
+        cityName: c.name,
+        countryCode: c.countryCode,
+        count: c.footprintCount,
+      },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [createGeoCircle(c.center, 25)],
+      },
+    });
+    features.push({
+      type: 'Feature',
+      properties: {
+        type: 'point',
+        cityName: c.name,
+        countryCode: c.countryCode,
+        count: c.footprintCount,
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [c.center.lng, c.center.lat],
+      },
+    });
+  }
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
 }
 
 const COUNTRIES_GEOJSON_URL =
@@ -70,7 +172,9 @@ export function WorldMapView({
   visitedCountryCodes,
   routeCoordinates,
   theme = 'light',
+  illuminationMode = 'city',
   onSelectFootprint,
+  onDeleteFootprint,
   onMapClick,
 }: WorldMapViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -176,8 +280,11 @@ export function WorldMapView({
             id: 'visited-countries-fill',
             type: 'fill',
             source: 'visited-countries',
+            layout: {
+              visibility: illuminationMode === 'country' ? 'visible' : 'none',
+            },
             paint: {
-              'fill-color': '#e07a3f',
+              'fill-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
               'fill-opacity': 0.3,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
@@ -187,11 +294,97 @@ export function WorldMapView({
             id: 'visited-countries-outline',
             type: 'line',
             source: 'visited-countries',
+            layout: {
+              visibility: illuminationMode === 'country' ? 'visible' : 'none',
+            },
             paint: {
-              'line-color': '#c8643b',
+              'line-color': theme === 'dark' ? '#f2a65a' : '#c8643b',
               'line-width': 1.8,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
+          });
+
+          const initialCitiesGeoJson = buildCitiesGeoJson(groupFootprintsByCity(footprints));
+          map.addSource('visited-cities', {
+            type: 'geojson',
+            data: initialCitiesGeoJson as any,
+          });
+
+          map.addLayer({
+            id: 'visited-cities-glow',
+            type: 'circle',
+            source: 'visited-cities',
+            filter: ['==', 'type', 'point'],
+            layout: {
+              visibility: illuminationMode === 'city' ? 'visible' : 'none',
+            },
+            paint: {
+              'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                1,
+                12,
+                3,
+                22,
+                6,
+                42,
+                10,
+                75,
+              ],
+              'circle-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
+              'circle-opacity': 0.38,
+              'circle-blur': 0.6,
+            },
+          });
+
+          map.addLayer({
+            id: 'visited-cities-fill',
+            type: 'fill',
+            source: 'visited-cities',
+            filter: ['==', 'type', 'polygon'],
+            layout: {
+              visibility: illuminationMode === 'city' ? 'visible' : 'none',
+            },
+            paint: {
+              'fill-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
+              'fill-opacity': 0.35,
+            },
+          });
+
+          map.addLayer({
+            id: 'visited-cities-outline',
+            type: 'line',
+            source: 'visited-cities',
+            filter: ['==', 'type', 'polygon'],
+            layout: {
+              visibility: illuminationMode === 'city' ? 'visible' : 'none',
+            },
+            paint: {
+              'line-color': theme === 'dark' ? '#f2a65a' : '#c8643b',
+              'line-width': 2,
+              'line-dasharray': [3, 2],
+            },
+          });
+
+          map.addLayer({
+            id: 'visited-cities-label',
+            type: 'symbol',
+            source: 'visited-cities',
+            filter: ['==', 'type', 'point'],
+            layout: {
+              visibility: illuminationMode === 'city' ? 'visible' : 'none',
+              'text-field': ['get', 'cityName'],
+              'text-size': 11,
+              'text-offset': [0, 1.8],
+              'text-anchor': 'top',
+              'text-allow-overlap': false,
+            },
+            paint: {
+              'text-color': theme === 'dark' ? '#f3e6d3' : '#3b3a36',
+              'text-halo-color': theme === 'dark' ? '#3a2e27' : '#ffffff',
+              'text-halo-width': 1.5,
+            },
           });
 
           map.addSource('trip-route', {
@@ -228,6 +421,10 @@ export function WorldMapView({
       });
 
       map.on('click', (e) => {
+        const target = e.originalEvent?.target as HTMLElement | null;
+        if (target?.closest?.('.maplibregl-marker')) {
+          return;
+        }
         if (onMapClickRef.current) {
           onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
         }
@@ -293,10 +490,112 @@ export function WorldMapView({
           theme === 'dark' ? '#f2a65a' : '#c8643b'
         );
       }
+      if (map.getLayer('visited-cities-glow')) {
+        map.setPaintProperty(
+          'visited-cities-glow',
+          'circle-color',
+          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+        );
+      }
+      if (map.getLayer('visited-cities-fill')) {
+        map.setPaintProperty(
+          'visited-cities-fill',
+          'fill-color',
+          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+        );
+      }
+      if (map.getLayer('visited-cities-outline')) {
+        map.setPaintProperty(
+          'visited-cities-outline',
+          'line-color',
+          theme === 'dark' ? '#f2a65a' : '#c8643b'
+        );
+      }
+      if (map.getLayer('visited-cities-label')) {
+        map.setPaintProperty(
+          'visited-cities-label',
+          'text-color',
+          theme === 'dark' ? '#f3e6d3' : '#3b3a36'
+        );
+        map.setPaintProperty(
+          'visited-cities-label',
+          'text-halo-color',
+          theme === 'dark' ? '#3a2e27' : '#ffffff'
+        );
+      }
     } catch {
       // Ignore layout property error before style load
     }
   }, [theme, mapReady]);
+
+  // Sync visibility between Country and City illumination modes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    try {
+      const showCountry = illuminationMode === 'country';
+      const showCity = illuminationMode === 'city';
+
+      if (map.getLayer('visited-countries-fill')) {
+        map.setLayoutProperty(
+          'visited-countries-fill',
+          'visibility',
+          showCountry ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-countries-outline')) {
+        map.setLayoutProperty(
+          'visited-countries-outline',
+          'visibility',
+          showCountry ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-cities-glow')) {
+        map.setLayoutProperty(
+          'visited-cities-glow',
+          'visibility',
+          showCity ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-cities-fill')) {
+        map.setLayoutProperty(
+          'visited-cities-fill',
+          'visibility',
+          showCity ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-cities-outline')) {
+        map.setLayoutProperty(
+          'visited-cities-outline',
+          'visibility',
+          showCity ? 'visible' : 'none'
+        );
+      }
+      if (map.getLayer('visited-cities-label')) {
+        map.setLayoutProperty(
+          'visited-cities-label',
+          'visibility',
+          showCity ? 'visible' : 'none'
+        );
+      }
+    } catch {
+      // Ignore visibility errors before style ready
+    }
+  }, [illuminationMode, mapReady]);
+
+  // Update visited cities GeoJSON source when footprints change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    try {
+      const src = map.getSource('visited-cities') as maplibregl.GeoJSONSource | undefined;
+      if (!src) return;
+      const cityGroups = groupFootprintsByCity(footprints);
+      src.setData(buildCitiesGeoJson(cityGroups) as any);
+    } catch {
+      // Ignore data update error
+    }
+  }, [footprints, mapReady]);
 
   // Update illuminated country codes filter
   useEffect(() => {
@@ -363,6 +662,8 @@ export function WorldMapView({
     };
   }
 
+  const uniqueCityGroups = groupFootprintsByCity(footprints);
+
   return (
     <div className="relative w-full flex-1 flex flex-col">
       {!webglError ? (
@@ -413,7 +714,12 @@ export function WorldMapView({
             <rect width="1000" height="500" fill="var(--surface-2)" />
             <rect width="1000" height="500" fill="url(#grid)" />
             {/* Simplified Continents Silhouette in warm moss/earth tones */}
-            <g fill="var(--moss-soft)" stroke="var(--moss)" strokeWidth="1.5" opacity="0.65">
+            <g
+              fill="var(--moss-soft)"
+              stroke="var(--moss)"
+              strokeWidth="1.5"
+              opacity={illuminationMode === 'country' ? 0.8 : 0.45}
+            >
               <path d="M80,70 L260,60 L300,150 L230,240 L180,230 L110,150 Z" />
               <path d="M240,260 L330,280 L310,430 L260,460 L230,350 Z" />
               <path d="M440,70 L570,65 L590,155 L460,165 L435,120 Z" />
@@ -423,6 +729,32 @@ export function WorldMapView({
               <path d="M855,135 L878,145 L868,175 L848,165 Z" />
               <path d="M760,320 L880,320 L890,410 L770,415 Z" />
             </g>
+
+            {/* City Illumination Halos on Fallback Map */}
+            {illuminationMode === 'city' &&
+              uniqueCityGroups.map((city) => {
+                const pos = projectToPercent(city.center);
+                return (
+                  <g key={city.name}>
+                    <circle
+                      cx={`${pos.x * 10}`}
+                      cy={`${pos.y * 5}`}
+                      r="22"
+                      fill="var(--accent)"
+                      opacity="0.32"
+                    />
+                    <circle
+                      cx={`${pos.x * 10}`}
+                      cy={`${pos.y * 5}`}
+                      r="22"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="1.5"
+                      strokeDasharray="4,3"
+                    />
+                  </g>
+                );
+              })}
             {routeCoordinates && routeCoordinates.length > 1 && (
               <polyline
                 fill="none"
@@ -500,13 +832,26 @@ export function WorldMapView({
             {footprints.map((fp) => {
               const deg = tiltFor(fp.id);
               return (
-                <button
+                <div
                   key={fp.id}
-                  type="button"
                   onClick={() => onSelectFootprint(fp)}
                   style={{ transform: `rotate(${deg}deg)` }}
-                  className="polaroid p-2 pb-3.5 rounded-sm border border-line/70 hover:!rotate-0 hover:-translate-y-1 transition text-left flex flex-col cursor-pointer"
+                  className="group relative polaroid p-2 pb-3.5 rounded-sm border border-line/70 hover:!rotate-0 hover:-translate-y-1 transition text-left flex flex-col cursor-pointer"
                 >
+                  {onDeleteFootprint && (
+                    <button
+                      type="button"
+                      aria-label={`刪除 ${fp.title}`}
+                      title="刪除此踩點足跡"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteFootprint(fp.id);
+                      }}
+                      className="absolute top-3.5 left-3.5 z-10 p-1.5 rounded-full bg-paper/90 text-paper-ink/70 hover:text-danger hover:bg-paper shadow-xs transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <div className="aspect-[4/3] w-full bg-surface-2 rounded-xs overflow-hidden mb-2 relative">
                     {fp.photos[0] ? (
                       <img
@@ -531,7 +876,7 @@ export function WorldMapView({
                   <div className="text-[10px] text-paper-ink/65 truncate mt-0.5">
                     {fp.visitedAt.slice(0, 10)} · {fp.cityName || fp.countryCode || '已踩點'}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

@@ -141,6 +141,11 @@ export function TripsView({
     onRefresh();
   }
 
+  async function handleDeleteTripItem(itemId: string) {
+    await api.deleteTripItem(itemId);
+    onRefresh();
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Left Sidebar: Trip Books List */}
@@ -422,7 +427,7 @@ export function TripsView({
                             )}
                           </div>
 
-                          <div className="shrink-0">
+                          <div className="shrink-0 flex items-center gap-1.5">
                             {isVisited && item.footprint ? (
                               <button
                                 type="button"
@@ -440,6 +445,15 @@ export function TripsView({
                                 打卡踩點
                               </button>
                             )}
+                            <button
+                              type="button"
+                              aria-label={`刪除 ${item.title}`}
+                              title="刪除此行程踩點"
+                              onClick={() => handleDeleteTripItem(item.id)}
+                              className="p-1.5 rounded-full text-ink-faint hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       );

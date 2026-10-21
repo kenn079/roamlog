@@ -347,26 +347,48 @@ export const api = {
   },
 
   deleteFootprint(id: string): Promise<void> {
-    return requestOrFallback(
-      `/api/footprints/${id}`,
-      { method: 'DELETE' },
-      () => {
-        const store = loadStore();
-        store.footprints = store.footprints.filter((f) => f.id !== id);
-        for (const t of store.trips) {
-          for (const d of t.days) {
-            for (const item of d.items) {
-              if (item.footprintId === id) {
-                item.footprintId = null;
-                item.footprint = null;
-              }
-            }
-          }
+    const cleanLocal = () => {
+      const store = loadStore();
+      store.footprints = store.footprints.filter((f) => f.id !== id);
+      for (const t of store.trips) {
+        for (const d of t.days) {
+          d.items = d.items.filter((item) => item.footprintId !== id);
         }
-        saveStore(store);
-        return { ok: true };
       }
-    ).then(() => undefined);
+      saveStore(store);
+      return { ok: true };
+    };
+    return requestOrFallback(`/api/footprints/${id}`, { method: 'DELETE' }, cleanLocal).then(
+      () => {
+        cleanLocal();
+      }
+    );
+  },
+
+  deleteTripItem(itemId: string): Promise<void> {
+    const cleanLocal = () => {
+      const store = loadStore();
+      let linkedFootprintId: string | null = null;
+      for (const t of store.trips) {
+        for (const d of t.days) {
+          const found = d.items.find((item) => item.id === itemId);
+          if (found?.footprintId) {
+            linkedFootprintId = found.footprintId;
+          }
+          d.items = d.items.filter((item) => item.id !== itemId);
+        }
+      }
+      if (linkedFootprintId) {
+        store.footprints = store.footprints.filter((f) => f.id !== linkedFootprintId);
+      }
+      saveStore(store);
+      return { ok: true };
+    };
+    return requestOrFallback(`/api/trip-items/${itemId}`, { method: 'DELETE' }, cleanLocal).then(
+      () => {
+        cleanLocal();
+      }
+    );
   },
 
   listTrips(): Promise<Trip[]> {

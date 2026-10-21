@@ -312,7 +312,21 @@ export class TravelRepository {
   }
 
   deleteFootprint(id: string): boolean {
+    this.db.prepare('DELETE FROM trip_items WHERE footprint_id = ?').run(id);
     const res = this.db.prepare('DELETE FROM footprints WHERE id = ?').run(id);
+    return Number(res.changes) > 0;
+  }
+
+  deleteTripItem(itemId: string): boolean {
+    const row = this.db
+      .prepare('SELECT footprint_id FROM trip_items WHERE id = ?')
+      .get(itemId) as { footprint_id: string | null } | undefined;
+    if (!row) return false;
+
+    const res = this.db.prepare('DELETE FROM trip_items WHERE id = ?').run(itemId);
+    if (row.footprint_id) {
+      this.db.prepare('DELETE FROM footprints WHERE id = ?').run(row.footprint_id);
+    }
     return Number(res.changes) > 0;
   }
 

@@ -28,6 +28,7 @@ vi.mock('../../src/client/lib/api', () => ({
     }),
     addLiveTripCheckIn: vi.fn(),
     deleteTrip: vi.fn(),
+    deleteTripItem: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -150,6 +151,27 @@ describe('TripsView', () => {
           cityName: 'Kyoto',
         })
       );
+    });
+  });
+
+  it('allows deleting a stop/check-in item from a trip day', async () => {
+    const onRefresh = vi.fn();
+    render(
+      <TripsView
+        trips={[sampleTrip]}
+        companions={[]}
+        onRefresh={onRefresh}
+        onSelectFootprint={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByText('2024 京都賞楓 5 日行'));
+    const deleteBtn = screen.getByRole('button', { name: /刪除 伏見稻荷大社/i });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(api.deleteTripItem).toHaveBeenCalledWith('item1');
+      expect(onRefresh).toHaveBeenCalled();
     });
   });
 });

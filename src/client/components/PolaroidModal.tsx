@@ -37,14 +37,15 @@ export function PolaroidModal({
             </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               aria-label="刪除足跡"
               onClick={() => onDelete(footprint.id)}
-              className="p-1.5 rounded-full text-paper-ink/50 hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-danger bg-danger/10 hover:bg-danger/20 transition cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>刪除</span>
             </button>
             <button
               type="button"

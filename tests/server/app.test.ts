@@ -88,5 +88,11 @@ describe('Express API routes', () => {
       });
     expect(checkinRes.status).toBe(201);
     expect(checkinRes.body.footprint.photos).toHaveLength(1);
+
+    const deleteItemRes = await request(app).delete(`/api/trip-items/${itemRes.body.id}`);
+    expect(deleteItemRes.status).toBe(200);
+
+    const footprintsAfterDelete = await request(app).get('/api/footprints');
+    expect(footprintsAfterDelete.body).toHaveLength(0);
   });
 });
