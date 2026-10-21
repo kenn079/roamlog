@@ -28,10 +28,18 @@ import { CheckInModal } from './components/CheckInModal';
 import { RetroImportModal } from './components/RetroImportModal';
 import { WishModal } from './components/WishModal';
 import { WishCardModal } from './components/WishCardModal';
-import { GoogleSyncModal } from './components/GoogleSyncModal';
-import { googleDrive } from './lib/googleDrive';
+import { FirebaseSyncModal } from './components/FirebaseSyncModal';
+import {
+  loginWithGoogle,
+  logoutFirebase,
+  onFirebaseAuthState,
+  fetchRemoteFirebaseData,
+  uploadToFirebase,
+  subscribeToFirebaseChanges,
+} from './lib/firebaseSync';
 import { mergeBackupStores } from './lib/syncEngine';
 import { TripsView, computeTripRouteCoordinates } from './components/TripsView';
+import type { User } from 'firebase/auth';
 import type {
   BackupPayload,
   Companion,
@@ -39,26 +47,11 @@ import type {
   Footprint,
   FootprintFilter,
   FootprintStats,
-  GoogleAuthInfo,
   IlluminationMode,
-  SyncManifest,
   SyncStatus,
   Trip,
   Wish,
 } from '../shared/types';
-
-function getDeviceId(): string {
-  try {
-    let id = localStorage.getItem('roamlog_device_id');
-    if (!id) {
-      id = 'dev_' + Math.random().toString(36).substring(2, 9);
-      localStorage.setItem('roamlog_device_id', id);
-    }
-    return id;
-  } catch {
-    return 'dev_temp';
-  }
-}
 
 export function App(): React.ReactElement {
   const { theme, toggleTheme } = useTheme();
@@ -129,22 +122,10 @@ export function App(): React.ReactElement {
   } | null>(null);
   const [retroImportOpen, setRetroImportOpen] = useState(false);
   const [wishModalOpen, setWishModalOpen] = useState(false);
-  const [googleSyncModalOpen, setGoogleSyncModalOpen] = useState(false);
-  const [googleClientId, setGoogleClientId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('roamlog_google_client_id') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [googleAuth, setGoogleAuth] = useState<GoogleAuthInfo | null>(() => {
-    try {
-      const saved = localStorage.getItem('roamlog_google_auth');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+
+  // Firebase Real-time Cloud Sync State
+  const [firebaseSyncModalOpen, setFirebaseSyncModalOpen] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
@@ -201,10 +182,11 @@ export function App(): React.ReactElement {
     loadAll(filter);
   }, [filter.year, filter.countryCode, filter.companionId, filter.tripId]);
 
+  // Firebase Cloud Sync Runner
   const runSync = useCallback(
-    async (authOverride?: GoogleAuthInfo) => {
-      const currentAuth = authOverride || googleAuth;
-      if (!currentAuth) {
+    async (uidOverride?: string) => {
+      const uid = uidOverride || firebaseUser?.uid;
+      if (!uid) {
         setSyncStatus('idle');
         return;
       }
@@ -213,37 +195,17 @@ export function App(): React.ReactElement {
 
       try {
         const localPayload = await api.exportBackup();
-        const remote = await googleDrive.fetchRemoteData(currentAuth);
+        const remote = await fetchRemoteFirebaseData(uid);
 
-        let fileIdToUpdate = remote.fileId;
+        const { merged, localChanged, remoteChanged } = mergeBackupStores(localPayload, remote);
 
-        if (remote.data) {
-          const { merged, localChanged, remoteChanged } = mergeBackupStores(localPayload, remote.data);
+        if (localChanged) {
+          await api.importBackup(merged);
+          await loadAll(filter);
+        }
 
-          if (localChanged) {
-            await api.importBackup(merged);
-            await loadAll(filter);
-          }
-
-          if (remoteChanged || !fileIdToUpdate) {
-            const manifest: SyncManifest = {
-              version: 1,
-              lastModified: new Date().toISOString(),
-              deviceId: getDeviceId(),
-              photoCount: (merged.footprints || []).reduce((acc, f) => acc + (f.photos?.length || 0), 0),
-            };
-            const uploadRes = await googleDrive.uploadRemoteData(currentAuth, merged, manifest, fileIdToUpdate);
-            fileIdToUpdate = uploadRes.fileId;
-          }
-        } else {
-          const manifest: SyncManifest = {
-            version: 1,
-            lastModified: new Date().toISOString(),
-            deviceId: getDeviceId(),
-            photoCount: (localPayload.footprints || []).reduce((acc, f) => acc + (f.photos?.length || 0), 0),
-          };
-          const uploadRes = await googleDrive.uploadRemoteData(currentAuth, localPayload, manifest);
-          fileIdToUpdate = uploadRes.fileId;
+        if (remoteChanged || remote.footprints.length === 0) {
+          await uploadToFirebase(uid, merged);
         }
 
         const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -259,80 +221,72 @@ export function App(): React.ReactElement {
         setSyncErrorMessage(err.message || '雲端同步失敗');
       }
     },
-    [googleAuth, filter]
+    [firebaseUser, filter]
   );
 
+  // Listen to Firebase Auth state
   useEffect(() => {
-    if (googleClientId) {
-      googleDrive.initGoogleAuth(googleClientId, (newAuth) => {
-        setGoogleAuth(newAuth);
-        try {
-          localStorage.setItem('roamlog_google_auth', JSON.stringify(newAuth));
-        } catch {
-          // ignore
-        }
-      }).catch(() => {
-        // ignore
-      });
-    }
-  }, [googleClientId]);
+    const unsubscribe = onFirebaseAuthState((user) => {
+      setFirebaseUser(user);
+      if (user) {
+        runSync(user.uid);
+      } else {
+        setSyncStatus('idle');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
+  // Listen to real-time changes across devices
   useEffect(() => {
-    if (googleAuth) {
-      runSync(googleAuth);
-    }
+    if (!firebaseUser) return;
+    const unsubscribe = subscribeToFirebaseChanges(firebaseUser.uid, async () => {
+      try {
+        const remote = await fetchRemoteFirebaseData(firebaseUser.uid);
+        const localPayload = await api.exportBackup();
+        const { merged, localChanged } = mergeBackupStores(localPayload, remote);
+        if (localChanged) {
+          await api.importBackup(merged);
+          await loadAll(filter);
+        }
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setLastSyncTime(nowStr);
+        setSyncStatus('synced');
+      } catch {
+        // ignore background sync errors
+      }
+    });
+
     const onOnline = () => {
-      if (googleAuth) runSync(googleAuth);
+      runSync(firebaseUser.uid);
     };
     window.addEventListener('online', onOnline);
-    return () => window.removeEventListener('online', onOnline);
-  }, [googleAuth?.accessToken]);
 
-  function handleSaveClientId(id: string) {
-    setGoogleClientId(id);
-    try {
-      localStorage.setItem('roamlog_google_client_id', id);
-    } catch {
-      // ignore
-    }
-    if (id) {
-      googleDrive.initGoogleAuth(id, (newAuth) => {
-        setGoogleAuth(newAuth);
-        try {
-          localStorage.setItem('roamlog_google_auth', JSON.stringify(newAuth));
-        } catch {
-          // ignore
-        }
-      }).catch(() => {});
-    }
-  }
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', onOnline);
+    };
+  }, [firebaseUser?.uid]);
 
   async function handleGoogleLogin() {
-    if (!googleClientId) {
-      setGoogleSyncModalOpen(true);
-      return;
-    }
     try {
-      const auth = await googleDrive.requestGoogleLogin();
-      setGoogleAuth(auth);
-      try {
-        localStorage.setItem('roamlog_google_auth', JSON.stringify(auth));
-      } catch {
-        // ignore
-      }
-      await runSync(auth);
+      setSyncStatus('syncing');
+      setSyncErrorMessage(null);
+      const user = await loginWithGoogle();
+      setFirebaseUser(user);
+      await runSync(user.uid);
     } catch (err: any) {
       setSyncStatus('error');
       setSyncErrorMessage(err.message || 'Google 登入失敗');
     }
   }
 
-  function handleDisconnectGoogle() {
-    setGoogleAuth(null);
-    setSyncStatus('idle');
-    setSyncErrorMessage(null);
+  async function handleLogout() {
     try {
-      localStorage.removeItem('roamlog_google_auth');
+      await logoutFirebase();
+      setFirebaseUser(null);
+      setSyncStatus('idle');
+      setSyncErrorMessage(null);
     } catch {
       // ignore
     }
@@ -342,14 +296,14 @@ export function App(): React.ReactElement {
     await api.deleteFootprint(id);
     setSelectedFootprint(null);
     await loadAll(filter);
-    if (googleAuth) runSync();
+    if (firebaseUser) runSync();
   }
 
   async function handleDeleteWish(id: string) {
     await api.deleteWish(id);
     setSelectedWish(null);
     await loadAll(filter);
-    if (googleAuth) runSync();
+    if (firebaseUser) runSync();
   }
 
   function handleStartFulfillWish(wish: Wish) {
@@ -378,6 +332,7 @@ export function App(): React.ReactElement {
     const payload = JSON.parse(text) as BackupPayload;
     await api.importBackup(payload);
     loadAll(filter);
+    if (firebaseUser) runSync();
   }
 
   const tabClass = (active: boolean) =>
@@ -414,10 +369,10 @@ export function App(): React.ReactElement {
 
         {/* Sync Pill + Theme + Settings Dropdown Popover */}
         <div className="flex items-center gap-1.5 relative">
-          {googleAuth ? (
+          {firebaseUser ? (
             <button
               type="button"
-              onClick={() => setGoogleSyncModalOpen(true)}
+              onClick={() => setFirebaseSyncModalOpen(true)}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                 syncStatus === 'syncing'
                   ? 'bg-accent/15 text-accent border border-accent/30'
@@ -425,7 +380,7 @@ export function App(): React.ReactElement {
                   ? 'bg-red-500/15 text-red-500 border border-red-500/30'
                   : 'bg-moss/15 text-moss border border-moss/30'
               }`}
-              title={`Google 雲端同步 (${googleAuth.email || '已連結'}) - 最後同步: ${lastSyncTime || '剛剛'}`}
+              title={`Google 雲端同步 (${firebaseUser.email || '已連結'}) - 最後同步: ${lastSyncTime || '剛剛'}`}
             >
               {syncStatus === 'syncing' ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -441,12 +396,12 @@ export function App(): React.ReactElement {
           ) : (
             <button
               type="button"
-              onClick={() => setGoogleSyncModalOpen(true)}
+              onClick={() => setFirebaseSyncModalOpen(true)}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-2 hover:bg-surface border border-line text-ink-soft hover:text-ink transition cursor-pointer"
-              title="Google 雲端雙向同步"
+              title="登入 Google 帳號無縫同步"
             >
               <Cloud className="w-3.5 h-3.5 text-accent" />
-              <span className="hidden sm:inline">雲端同步</span>
+              <span className="hidden sm:inline">登入同步</span>
             </button>
           )}
 
@@ -575,7 +530,7 @@ export function App(): React.ReactElement {
                     <label className="text-xs font-semibold text-ink-soft block">
                       Google 雲端雙向同步
                     </label>
-                    {googleAuth && (
+                    {firebaseUser && (
                       <span className="text-[10px] text-moss font-semibold flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />
                         已連線
@@ -583,10 +538,10 @@ export function App(): React.ReactElement {
                     )}
                   </div>
 
-                  {googleAuth ? (
+                  {firebaseUser ? (
                     <div className="p-2.5 bg-surface-2 border border-line rounded-xl space-y-2">
                       <div className="text-[11px] text-ink font-semibold truncate">
-                        {googleAuth.email}
+                        {firebaseUser.email}
                       </div>
                       <div className="text-[10px] text-ink-faint">
                         最後同步：{lastSyncTime || '剛剛'}
@@ -608,11 +563,11 @@ export function App(): React.ReactElement {
                           type="button"
                           onClick={() => {
                             setSettingsOpen(false);
-                            setGoogleSyncModalOpen(true);
+                            setFirebaseSyncModalOpen(true);
                           }}
                           className="btn-soft py-1.5 px-2 text-xs flex items-center justify-center gap-1"
                         >
-                          <span>管理同步</span>
+                          <span>管理帳號</span>
                         </button>
                       </div>
                     </div>
@@ -621,16 +576,16 @@ export function App(): React.ReactElement {
                       type="button"
                       onClick={() => {
                         setSettingsOpen(false);
-                        setGoogleSyncModalOpen(true);
+                        setFirebaseSyncModalOpen(true);
                       }}
                       className="btn-soft w-full py-2 px-3 text-xs flex items-center justify-center gap-1.5 text-accent"
                     >
                       <Cloud className="w-3.5 h-3.5" />
-                      <span>設定 Google 雲端同步</span>
+                      <span>以 Google 帳號一鍵登入</span>
                     </button>
                   )}
                   <p className="text-[11px] text-ink-faint leading-relaxed">
-                    透過個人 Google Drive AppData 空間儲存，手機電腦無縫同步。
+                    透過 Google Firebase 即時同步，手機打卡電腦秒級更新。
                   </p>
                 </div>
 
@@ -756,7 +711,7 @@ export function App(): React.ReactElement {
         <WishModal
           onCreated={async () => {
             await loadAll(filter);
-            if (googleAuth) runSync();
+            if (firebaseUser) runSync();
           }}
           onClose={() => setWishModalOpen(false)}
         />
@@ -783,7 +738,7 @@ export function App(): React.ReactElement {
               setFulfillingWish(null);
             }
             await loadAll(filter);
-            if (googleAuth) runSync();
+            if (firebaseUser) runSync();
           }}
           onCompanionCreated={(c) => setCompanions((prev) => [...prev, c])}
           onClose={() => {
@@ -799,25 +754,23 @@ export function App(): React.ReactElement {
           trips={trips}
           onImported={async () => {
             await loadAll(filter);
-            if (googleAuth) runSync();
+            if (firebaseUser) runSync();
           }}
           onClose={() => setRetroImportOpen(false)}
         />
       )}
 
-      {googleSyncModalOpen && (
-        <GoogleSyncModal
-          onClose={() => setGoogleSyncModalOpen(false)}
-          onSaveClientId={handleSaveClientId}
+      {firebaseSyncModalOpen && (
+        <FirebaseSyncModal
+          onClose={() => setFirebaseSyncModalOpen(false)}
           onLogin={handleGoogleLogin}
-          clientId={googleClientId}
-          isLoggedIn={!!googleAuth}
-          userEmail={googleAuth?.email}
-          userName={googleAuth?.name}
-          userPicture={googleAuth?.picture}
-          lastSyncedAt={lastSyncTime}
+          onLogout={handleLogout}
           onManualSync={() => runSync()}
-          onDisconnect={handleDisconnectGoogle}
+          isLoggedIn={!!firebaseUser}
+          userEmail={firebaseUser?.email}
+          userName={firebaseUser?.displayName}
+          userPhoto={firebaseUser?.photoURL}
+          lastSyncedAt={lastSyncTime}
           syncStatus={syncStatus}
           syncErrorMessage={syncErrorMessage}
         />
