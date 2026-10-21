@@ -11,6 +11,8 @@ import {
   X,
   Building2,
   Globe,
+  Star,
+  EyeOff,
 } from 'lucide-react';
 import { api } from './lib/api';
 import { useTheme } from './lib/theme';
@@ -20,6 +22,8 @@ import { WorldMapView } from './components/WorldMapView';
 import { PolaroidModal } from './components/PolaroidModal';
 import { CheckInModal } from './components/CheckInModal';
 import { RetroImportModal } from './components/RetroImportModal';
+import { WishModal } from './components/WishModal';
+import { WishCardModal } from './components/WishCardModal';
 import { TripsView, computeTripRouteCoordinates } from './components/TripsView';
 import type {
   BackupPayload,
@@ -30,6 +34,7 @@ import type {
   FootprintStats,
   IlluminationMode,
   Trip,
+  Wish,
 } from '../shared/types';
 
 export function App(): React.ReactElement {
@@ -43,6 +48,11 @@ export function App(): React.ReactElement {
   });
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [footprints, setFootprints] = useState<Footprint[]>([]);
+  const [wishes, setWishes] = useState<Wish[]>([]);
+  const [wishStats, setWishStats] = useState<{ totalCount: number; unfulfilledCount: number }>({
+    totalCount: 0,
+    unfulfilledCount: 0,
+  });
   const [trips, setTrips] = useState<Trip[]>([]);
   const [filter, setFilter] = useState<FootprintFilter>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -65,7 +75,28 @@ export function App(): React.ReactElement {
     }
   }
 
+  const [showWishes, setShowWishes] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('roamlog_show_wishes');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // fallback
+    }
+    return true;
+  });
+
+  function handleShowWishesChange(show: boolean) {
+    setShowWishes(show);
+    try {
+      localStorage.setItem('roamlog_show_wishes', String(show));
+    } catch {
+      // ignore
+    }
+  }
+
   const [selectedFootprint, setSelectedFootprint] = useState<Footprint | null>(null);
+  const [selectedWish, setSelectedWish] = useState<Wish | null>(null);
+  const [fulfillingWish, setFulfillingWish] = useState<Wish | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkInCoords, setCheckInCoords] = useState<Coordinates | null>(null);
@@ -74,21 +105,26 @@ export function App(): React.ReactElement {
     tripDayId: string;
   } | null>(null);
   const [retroImportOpen, setRetroImportOpen] = useState(false);
+  const [wishModalOpen, setWishModalOpen] = useState(false);
 
   const handleSelectFootprint = useCallback((fp: Footprint) => setSelectedFootprint(fp), []);
 
   async function loadAll(currentFilter: FootprintFilter = filter) {
     try {
-      const [st, comps, fps, trs] = await Promise.all([
+      const [st, comps, fps, trs, ws, wst] = await Promise.all([
         api.getStats(),
         api.listCompanions(),
         api.listFootprints(currentFilter),
         api.listTrips(),
+        api.listWishes(),
+        api.getWishStats(),
       ]);
       setStats(st);
       setCompanions(comps);
       setFootprints(fps);
       setTrips(trs);
+      setWishes(ws);
+      setWishStats(wst);
 
       const nextFilter = { ...currentFilter };
       let filterChanged = false;
@@ -121,6 +157,20 @@ export function App(): React.ReactElement {
     await api.deleteFootprint(id);
     setSelectedFootprint(null);
     await loadAll(filter);
+  }
+
+  async function handleDeleteWish(id: string) {
+    await api.deleteWish(id);
+    setSelectedWish(null);
+    await loadAll(filter);
+  }
+
+  function handleStartFulfillWish(wish: Wish) {
+    setSelectedWish(null);
+    setFulfillingWish(wish);
+    setCheckInCoords(wish.coordinates);
+    setPreselectedTripDay(null);
+    setCheckInOpen(true);
   }
 
   async function handleExportBackup() {
@@ -258,7 +308,45 @@ export function App(): React.ReactElement {
                   </p>
                 </div>
 
-                {/* Section 2: 資料備份與還原 */}
+                {/* Section 2: 心願地點顯示 */}
+                <div className="space-y-2 border-t border-line pt-3">
+                  <label className="text-xs font-semibold text-ink-soft block">
+                    心願地點圖釘
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-2 border border-line rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleShowWishesChange(true)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                        showWishes
+                          ? 'bg-sun text-paper-ink font-bold shadow-xs'
+                          : 'text-ink-soft hover:text-ink'
+                      }`}
+                    >
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <span>顯示心願</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShowWishesChange(false)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                        !showWishes
+                          ? 'bg-accent text-on-accent shadow-xs'
+                          : 'text-ink-soft hover:text-ink'
+                      }`}
+                    >
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>暫時隱藏</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-ink-faint leading-relaxed">
+                    {showWishes
+                      ? '在地圖上以金色星標顯示待訪的心願地點。'
+                      : '僅顯示已解鎖足跡，暫時隱藏心願星標。'}
+                  </p>
+                </div>
+
+                {/* Section 3: 資料備份與還原 */}
                 <div className="space-y-2 border-t border-line pt-3">
                   <label className="text-xs font-semibold text-ink-soft block">
                     資料備份與還原
@@ -306,6 +394,7 @@ export function App(): React.ReactElement {
           <>
             <StatsBar
               stats={stats}
+              wishCount={wishStats.unfulfilledCount}
               companions={companions}
               filter={filter}
               onFilterChange={(nextFilter) => {
@@ -315,23 +404,28 @@ export function App(): React.ReactElement {
                 }
               }}
               onOpenCheckIn={() => {
+                setFulfillingWish(null);
                 setCheckInCoords(null);
                 setPreselectedTripDay(null);
                 setCheckInOpen(true);
               }}
               onOpenRetroImport={() => setRetroImportOpen(true)}
+              onOpenAddWish={() => setWishModalOpen(true)}
             />
 
             <div className="flex-1 flex flex-col">
               <WorldMapView
                 footprints={footprints}
+                wishes={showWishes ? wishes : []}
                 visitedCountryCodes={stats.visitedCountryCodes}
                 routeCoordinates={routeCoordinates}
                 theme={theme}
                 illuminationMode={illuminationMode}
                 onSelectFootprint={handleSelectFootprint}
+                onSelectWish={(w) => setSelectedWish(w)}
                 onDeleteFootprint={handleDeleteFootprint}
                 onMapClick={(coords) => {
+                  setFulfillingWish(null);
                   setCheckInCoords(coords);
                   setPreselectedTripDay(null);
                   setCheckInOpen(true);
@@ -346,6 +440,7 @@ export function App(): React.ReactElement {
             onRefresh={() => loadAll(filter)}
             onSelectFootprint={handleSelectFootprint}
             onOpenLiveCheckIn={(tripId, tripDayId) => {
+              setFulfillingWish(null);
               setCheckInCoords(null);
               setPreselectedTripDay({ tripId, tripDayId });
               setCheckInOpen(true);
@@ -360,6 +455,22 @@ export function App(): React.ReactElement {
       </main>
 
       {/* Modals */}
+      {selectedWish && (
+        <WishCardModal
+          wish={selectedWish}
+          onClose={() => setSelectedWish(null)}
+          onDelete={handleDeleteWish}
+          onFulfill={handleStartFulfillWish}
+        />
+      )}
+
+      {wishModalOpen && (
+        <WishModal
+          onCreated={() => loadAll(filter)}
+          onClose={() => setWishModalOpen(false)}
+        />
+      )}
+
       {selectedFootprint && (
         <PolaroidModal
           footprint={selectedFootprint}
@@ -373,10 +484,20 @@ export function App(): React.ReactElement {
           companions={companions}
           trips={trips}
           initialCoordinates={checkInCoords}
+          initialTitle={fulfillingWish?.title}
           preselectedTripDay={preselectedTripDay}
-          onCreated={() => loadAll(filter)}
+          onCreated={async (fp) => {
+            if (fulfillingWish && fp) {
+              await api.fulfillWish(fulfillingWish.id, fp.id);
+              setFulfillingWish(null);
+            }
+            await loadAll(filter);
+          }}
           onCompanionCreated={(c) => setCompanions((prev) => [...prev, c])}
-          onClose={() => setCheckInOpen(false)}
+          onClose={() => {
+            setFulfillingWish(null);
+            setCheckInOpen(false);
+          }}
         />
       )}
 

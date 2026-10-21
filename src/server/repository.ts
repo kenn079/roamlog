@@ -8,6 +8,7 @@ import type {
   Coordinates,
   CreateFootprintInput,
   CreateTripInput,
+  CreateWishInput,
   Footprint,
   FootprintFilter,
   FootprintStats,
@@ -17,6 +18,8 @@ import type {
   TripItem,
   TripStatus,
   WeatherInfo,
+  Wish,
+  WishCategory,
 } from '../shared/types';
 
 export class TravelRepository {
@@ -106,6 +109,21 @@ export class TravelRepository {
         footprint_id TEXT REFERENCES footprints(id) ON DELETE SET NULL,
         extensions TEXT NOT NULL DEFAULT '{}'
       );
+
+      CREATE TABLE IF NOT EXISTS wishes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        country_code TEXT NOT NULL DEFAULT '',
+        country_name TEXT NOT NULL DEFAULT '',
+        city_name TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT 'other',
+        note TEXT NOT NULL DEFAULT '',
+        fulfilled_footprint_id TEXT REFERENCES footprints(id) ON DELETE SET NULL,
+        extensions TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -179,6 +197,22 @@ export class TravelRepository {
       companions: this.getCompanionsForFootprint(id),
       tripId: row.trip_id ? String(row.trip_id) : null,
       tripDayId: row.trip_day_id ? String(row.trip_day_id) : null,
+      extensions: JSON.parse(String(row.extensions || '{}')) as Record<string, unknown>,
+      createdAt: String(row.created_at),
+    };
+  }
+
+  private mapWishRow(row: Record<string, unknown>): Wish {
+    return {
+      id: String(row.id),
+      title: String(row.title),
+      coordinates: { lat: Number(row.lat), lng: Number(row.lng) },
+      countryCode: String(row.country_code || ''),
+      countryName: String(row.country_name || ''),
+      cityName: String(row.city_name || ''),
+      category: (row.category as WishCategory) || 'other',
+      note: String(row.note || ''),
+      fulfilledFootprintId: row.fulfilled_footprint_id ? String(row.fulfilled_footprint_id) : null,
       extensions: JSON.parse(String(row.extensions || '{}')) as Record<string, unknown>,
       createdAt: String(row.created_at),
     };
@@ -711,6 +745,123 @@ export class TravelRepository {
     return this.checkInTripItem(item.id, visitInput);
   }
 
+  listWishes(includeFulfilled: boolean = false): Wish[] {
+    const query = includeFulfilled
+      ? 'SELECT * FROM wishes ORDER BY created_at DESC'
+      : 'SELECT * FROM wishes WHERE fulfilled_footprint_id IS NULL ORDER BY created_at DESC';
+    const rows = this.db.prepare(query).all() as Array<Record<string, unknown>>;
+    return rows.map((r) => this.mapWishRow(r));
+  }
+
+  getWish(id: string): Wish | null {
+    const row = this.db
+      .prepare('SELECT * FROM wishes WHERE id = ?')
+      .get(id) as Record<string, unknown> | undefined;
+    return row ? this.mapWishRow(row) : null;
+  }
+
+  createWish(input: CreateWishInput): Wish {
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    const countryCode = (input.countryCode || '').toUpperCase();
+    const countryName = input.countryName || '';
+    const cityName = input.cityName || '';
+    const category = input.category || 'other';
+    const note = input.note || '';
+    const extensionsJson = JSON.stringify(input.extensions ?? {});
+
+    this.db
+      .prepare(`
+        INSERT INTO wishes (
+          id, title, lat, lng, country_code, country_name, city_name,
+          category, note, extensions, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        id,
+        input.title.trim(),
+        input.coordinates.lat,
+        input.coordinates.lng,
+        countryCode,
+        countryName,
+        cityName,
+        category,
+        note,
+        extensionsJson,
+        createdAt
+      );
+
+    return {
+      id,
+      title: input.title.trim(),
+      coordinates: input.coordinates,
+      countryCode,
+      countryName,
+      cityName,
+      category,
+      note,
+      fulfilledFootprintId: null,
+      extensions: input.extensions ?? {},
+      createdAt,
+    };
+  }
+
+  updateWish(id: string, patch: Partial<CreateWishInput>): Wish | null {
+    const current = this.getWish(id);
+    if (!current) return null;
+
+    const title = patch.title !== undefined ? patch.title.trim() : current.title;
+    const lat = patch.coordinates !== undefined ? patch.coordinates.lat : current.coordinates.lat;
+    const lng = patch.coordinates !== undefined ? patch.coordinates.lng : current.coordinates.lng;
+    const countryCode =
+      patch.countryCode !== undefined ? patch.countryCode.toUpperCase() : current.countryCode;
+    const countryName = patch.countryName !== undefined ? patch.countryName : current.countryName;
+    const cityName = patch.cityName !== undefined ? patch.cityName : current.cityName;
+    const category = patch.category !== undefined ? patch.category : current.category;
+    const note = patch.note !== undefined ? patch.note : current.note;
+    const extensionsJson =
+      patch.extensions !== undefined
+        ? JSON.stringify(patch.extensions)
+        : JSON.stringify(current.extensions);
+
+    this.db
+      .prepare(`
+        UPDATE wishes
+        SET title = ?, lat = ?, lng = ?, country_code = ?, country_name = ?,
+            city_name = ?, category = ?, note = ?, extensions = ?
+        WHERE id = ?
+      `)
+      .run(title, lat, lng, countryCode, countryName, cityName, category, note, extensionsJson, id);
+
+    return this.getWish(id);
+  }
+
+  deleteWish(id: string): boolean {
+    const res = this.db.prepare('DELETE FROM wishes WHERE id = ?').run(id);
+    return res.changes > 0;
+  }
+
+  fulfillWish(wishId: string, footprintId: string): Wish | null {
+    const res = this.db
+      .prepare('UPDATE wishes SET fulfilled_footprint_id = ? WHERE id = ?')
+      .run(footprintId, wishId);
+    if (res.changes === 0) return null;
+    return this.getWish(wishId);
+  }
+
+  getWishStats(): { totalCount: number; unfulfilledCount: number } {
+    const totalRow = this.db.prepare('SELECT COUNT(*) as count FROM wishes').get() as {
+      count: number;
+    };
+    const unfulfilledRow = this.db
+      .prepare('SELECT COUNT(*) as count FROM wishes WHERE fulfilled_footprint_id IS NULL')
+      .get() as { count: number };
+    return {
+      totalCount: Number(totalRow.count || 0),
+      unfulfilledCount: Number(unfulfilledRow.count || 0),
+    };
+  }
+
   exportBackup(): BackupPayload {
     return {
       version: 1,
@@ -718,6 +869,7 @@ export class TravelRepository {
       companions: this.listCompanions(),
       footprints: this.listFootprints(),
       trips: this.listTrips(),
+      wishes: this.listWishes(true),
     };
   }
 
@@ -732,6 +884,7 @@ export class TravelRepository {
         DELETE FROM trip_days;
         DELETE FROM trips;
         DELETE FROM companions;
+        DELETE FROM wishes;
       `);
 
       const insertCompanion = this.db.prepare(
@@ -831,6 +984,30 @@ export class TravelRepository {
             );
           }
         }
+      }
+
+      const insertWish = this.db.prepare(
+        `INSERT INTO wishes (
+          id, title, lat, lng, country_code, country_name, city_name,
+          category, note, fulfilled_footprint_id, extensions, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+
+      for (const w of payload.wishes ?? []) {
+        insertWish.run(
+          w.id,
+          w.title,
+          w.coordinates.lat,
+          w.coordinates.lng,
+          w.countryCode ?? '',
+          w.countryName ?? '',
+          w.cityName ?? '',
+          w.category ?? 'other',
+          w.note ?? '',
+          w.fulfilledFootprintId ?? null,
+          JSON.stringify(w.extensions ?? {}),
+          w.createdAt
+        );
       }
 
       this.db.exec('COMMIT;');

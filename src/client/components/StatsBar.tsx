@@ -1,15 +1,17 @@
 import React from 'react';
-import { Tent, Trees, Plus, ImagePlus, Filter } from 'lucide-react';
+import { Tent, Trees, Plus, ImagePlus, Filter, Star } from 'lucide-react';
 import { CampScene } from './CampDecor';
 import type { Companion, FootprintFilter, FootprintStats } from '../../shared/types';
 
 export interface StatsBarProps {
   stats: FootprintStats;
+  wishCount?: number;
   companions: Companion[];
   filter: FootprintFilter;
   onFilterChange: (nextFilter: FootprintFilter) => void;
   onOpenCheckIn: () => void;
   onOpenRetroImport: () => void;
+  onOpenAddWish?: () => void;
 }
 
 const REGION_DISPLAY =
@@ -31,11 +33,13 @@ function formatCountryOption(code: string): string {
 
 export function StatsBar({
   stats,
+  wishCount = 0,
   companions,
   filter,
   onFilterChange,
   onOpenCheckIn,
   onOpenRetroImport,
+  onOpenAddWish,
 }: StatsBarProps): React.ReactElement {
   return (
     <div className="panel overflow-hidden">
@@ -73,6 +77,21 @@ export function StatsBar({
                 className="font-display text-xl font-bold text-ink"
               >
                 {stats.cityCount}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-surface-2 border border-line flex items-center justify-center text-sun">
+              <Star className="w-5 h-5 fill-sun/20" />
+            </div>
+            <div>
+              <div className="text-xs text-ink-soft">待訪心願</div>
+              <div
+                data-testid="stat-wishes"
+                className="font-display text-xl font-bold text-ink"
+              >
+                {wishCount}
               </div>
             </div>
           </div>
@@ -147,6 +166,18 @@ export function StatsBar({
               </>
             )}
           </div>
+
+          {onOpenAddWish && (
+            <button
+              type="button"
+              onClick={onOpenAddWish}
+              className="btn-soft px-3.5 py-2 text-xs sm:text-sm border-sun/50 hover:border-sun text-ink flex items-center gap-1.5 cursor-pointer shadow-xs"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--sun) 18%, var(--surface))' }}
+            >
+              <Star className="w-4 h-4 text-sun fill-sun" />
+              <span>新增心願</span>
+            </button>
+          )}
 
           <button
             type="button"

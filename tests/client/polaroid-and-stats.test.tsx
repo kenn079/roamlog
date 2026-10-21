@@ -124,8 +124,13 @@ describe('StatsBar & PolaroidModal', () => {
     expect(screen.getByText('偏好與資料設定')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /僅限城市/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /整個國家/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /顯示心願/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /暫時隱藏/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /匯出備份/i })).toBeInTheDocument();
     expect(screen.getByText(/還原備份/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /暫時隱藏/i }));
+    expect(screen.getByRole('button', { name: /暫時隱藏/i })).toHaveClass('bg-accent');
 
     fireEvent.click(screen.getByRole('button', { name: /整個國家/i }));
     expect(screen.getByRole('button', { name: /整個國家/i })).toHaveClass('bg-accent');

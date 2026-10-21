@@ -5,7 +5,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { TravelRepository } from './repository';
 import type { EnrichmentService } from './enrichment';
-import type { CreateFootprintInput, PhotoItem } from '../shared/types';
+import type { CreateFootprintInput, CreateWishInput, PhotoItem, Wish } from '../shared/types';
 
 export function createApp(
   repo: TravelRepository,
@@ -29,6 +29,19 @@ export function createApp(
         clone.weather = weather;
       }
     }
+    if (clone.coordinates && (!clone.countryCode || !clone.cityName)) {
+      const geo = await enrichment.reverseGeocode(clone.coordinates);
+      if (geo) {
+        if (!clone.countryCode) clone.countryCode = geo.countryCode;
+        if (!clone.countryName) clone.countryName = geo.countryName;
+        if (!clone.cityName) clone.cityName = geo.cityName;
+      }
+    }
+    return clone;
+  }
+
+  async function enrichWishInput<T extends Partial<CreateWishInput>>(input: T): Promise<T> {
+    const clone = { ...input };
     if (clone.coordinates && (!clone.countryCode || !clone.cityName)) {
       const geo = await enrichment.reverseGeocode(clone.coordinates);
       if (geo) {
@@ -195,6 +208,63 @@ export function createApp(
       return;
     }
     res.json({ ok: true });
+  });
+
+  app.get('/api/wishes', (req, res) => {
+    const includeFulfilled = req.query.includeFulfilled === 'true';
+    res.json(repo.listWishes(includeFulfilled));
+  });
+
+  app.get('/api/wishes/stats', (_req, res) => {
+    res.json(repo.getWishStats());
+  });
+
+  app.post('/api/wishes', async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      if (!body.title || !body.coordinates) {
+        res.status(400).json({ error: 'title and coordinates are required' });
+        return;
+      }
+      const enriched =
+        body.autoEnrich === false ? body : await enrichWishInput(body as CreateWishInput);
+      const created = repo.createWish(enriched as CreateWishInput);
+      res.status(201).json(created);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  app.patch('/api/wishes/:id', (req, res) => {
+    const updated = repo.updateWish(req.params.id, req.body ?? {});
+    if (!updated) {
+      res.status(404).json({ error: 'Wish not found' });
+      return;
+    }
+    res.json(updated);
+  });
+
+  app.delete('/api/wishes/:id', (req, res) => {
+    const ok = repo.deleteWish(req.params.id);
+    if (!ok) {
+      res.status(404).json({ error: 'Wish not found' });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
+  app.post('/api/wishes/:id/fulfill', (req, res) => {
+    const { footprintId } = req.body ?? {};
+    if (!footprintId) {
+      res.status(400).json({ error: 'footprintId is required' });
+      return;
+    }
+    const updated = repo.fulfillWish(req.params.id, footprintId);
+    if (!updated) {
+      res.status(404).json({ error: 'Wish not found' });
+      return;
+    }
+    res.json(updated);
   });
 
   app.post('/api/enrich', async (req, res) => {

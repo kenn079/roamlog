@@ -4,15 +4,17 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapPin, Trash2 } from 'lucide-react';
 import { EmptyCamp, tiltFor } from './CampDecor';
 import type { Theme } from '../lib/theme';
-import type { Coordinates, Footprint, IlluminationMode } from '../../shared/types';
+import type { Coordinates, Footprint, IlluminationMode, Wish } from '../../shared/types';
 
 export interface WorldMapViewProps {
   footprints: Footprint[];
+  wishes?: Wish[];
   visitedCountryCodes: string[];
   routeCoordinates?: Coordinates[];
   theme?: Theme;
   illuminationMode?: IlluminationMode;
   onSelectFootprint: (footprint: Footprint) => void;
+  onSelectWish?: (wish: Wish) => void;
   onDeleteFootprint?: (id: string) => void;
   onMapClick?: (coords: Coordinates) => void;
 }
@@ -167,13 +169,56 @@ export function createFootprintMarkerElement(
   return el;
 }
 
+export function createWishMarkerElement(
+  wish: Wish,
+  onSelectWish: (wish: Wish) => void
+): HTMLButtonElement {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'group relative flex flex-col items-center focus:outline-none cursor-pointer';
+  el.title = `⭐ 想去心願：${wish.title}`;
+
+  const pin = document.createElement('div');
+  pin.className =
+    'px-2 py-1 rounded-full bg-surface border-2 border-sun shadow-md group-hover:scale-110 transition-transform flex items-center gap-1';
+  pin.style.boxShadow = '0 0 10px rgba(242, 181, 68, 0.45)';
+
+  const star = document.createElement('span');
+  star.className = 'text-xs leading-none';
+  star.textContent = '★';
+  star.style.color = 'var(--sun)';
+
+  const label = document.createElement('span');
+  label.className = 'text-[10px] font-bold text-ink max-w-[80px] truncate leading-tight';
+  label.textContent = wish.title;
+
+  pin.appendChild(star);
+  pin.appendChild(label);
+
+  const tip = document.createElement('div');
+  tip.className = 'w-1.5 h-1.5 rotate-45 -mt-0.5';
+  tip.style.backgroundColor = 'var(--sun)';
+
+  el.appendChild(pin);
+  el.appendChild(tip);
+
+  el.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    onSelectWish(wish);
+  });
+
+  return el;
+}
+
 export function WorldMapView({
   footprints,
+  wishes,
   visitedCountryCodes,
   routeCoordinates,
   theme = 'light',
   illuminationMode = 'city',
   onSelectFootprint,
+  onSelectWish,
   onDeleteFootprint,
   onMapClick,
 }: WorldMapViewProps): React.ReactElement {
@@ -635,7 +680,7 @@ export function WorldMapView({
     });
   }, [routeCoordinates, mapReady]);
 
-  // Update Polaroid markers
+  // Update Polaroid & Wish markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -650,7 +695,18 @@ export function WorldMapView({
         .addTo(map);
       markersRef.current.push(marker);
     });
-  }, [footprints, onSelectFootprint]);
+
+    if (wishes && onSelectWish) {
+      wishes.forEach((w) => {
+        if (w.fulfilledFootprintId) return;
+        const el = createWishMarkerElement(w, onSelectWish);
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([w.coordinates.lng, w.coordinates.lat])
+          .addTo(map);
+        markersRef.current.push(marker);
+      });
+    }
+  }, [footprints, wishes, onSelectFootprint, onSelectWish]);
 
   // Project lat/lng to percentage for the non-WebGL interactive fallback map
   function projectToPercent(coords: Coordinates): { x: number; y: number } {
@@ -803,6 +859,31 @@ export function WorldMapView({
                   </span>
                 </div>
                 <div className="w-2 h-2 bg-accent rotate-45 -mt-1 shadow" />
+              </button>
+            );
+          })}
+
+          {wishes && onSelectWish && wishes.filter((w) => !w.fulfilledFootprintId).map((w) => {
+            const pos = projectToPercent(w.coordinates);
+            return (
+              <button
+                key={w.id}
+                type="button"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onSelectWish(w);
+                }}
+                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                className="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center cursor-pointer z-10"
+              >
+                <div
+                  className="px-2 py-0.5 rounded-full bg-surface border-2 border-sun shadow-md group-hover:scale-110 transition-transform flex items-center gap-1"
+                  style={{ boxShadow: '0 0 8px rgba(242, 181, 68, 0.45)' }}
+                >
+                  <span className="text-[10px]" style={{ color: 'var(--sun)' }}>★</span>
+                  <span className="text-[9px] font-bold text-ink max-w-[60px] truncate">{w.title}</span>
+                </div>
+                <div className="w-1.5 h-1.5 rotate-45 -mt-0.5" style={{ backgroundColor: 'var(--sun)' }} />
               </button>
             );
           })}

@@ -4,6 +4,7 @@ import type {
   Coordinates,
   CreateFootprintInput,
   CreateTripInput,
+  CreateWishInput,
   Footprint,
   FootprintFilter,
   FootprintStats,
@@ -12,6 +13,7 @@ import type {
   TripDay,
   TripItem,
   WeatherInfo,
+  Wish,
 } from '../../shared/types';
 import { compressImage } from './image';
 
@@ -21,6 +23,7 @@ interface LocalStore {
   companions: Companion[];
   footprints: Footprint[];
   trips: Trip[];
+  wishes: Wish[];
 }
 
 function uid(): string {
@@ -33,15 +36,16 @@ function uid(): string {
 function loadStore(): LocalStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { companions: [], footprints: [], trips: [] };
+    if (!raw) return { companions: [], footprints: [], trips: [], wishes: [] };
     const parsed = JSON.parse(raw) as Partial<LocalStore>;
     return {
       companions: Array.isArray(parsed.companions) ? parsed.companions : [],
       footprints: Array.isArray(parsed.footprints) ? parsed.footprints : [],
       trips: Array.isArray(parsed.trips) ? parsed.trips : [],
+      wishes: Array.isArray(parsed.wishes) ? parsed.wishes : [],
     };
   } catch {
-    return { companions: [], footprints: [], trips: [] };
+    return { companions: [], footprints: [], trips: [], wishes: [] };
   }
 }
 
@@ -51,6 +55,25 @@ function saveStore(store: LocalStore): void {
   } catch {
     // Ignore quota errors
   }
+}
+
+function localCreateWish(store: LocalStore, input: CreateWishInput): Wish {
+  const wish: Wish = {
+    id: uid(),
+    title: input.title.trim(),
+    coordinates: input.coordinates,
+    countryCode: (input.countryCode || '').toUpperCase(),
+    countryName: input.countryName || '',
+    cityName: input.cityName || '',
+    category: input.category || 'other',
+    note: input.note || '',
+    fulfilledFootprintId: null,
+    extensions: input.extensions ?? {},
+    createdAt: new Date().toISOString(),
+  };
+  store.wishes.unshift(wish);
+  saveStore(store);
+  return wish;
 }
 
 function normalizeDate(visitedAt: string): string {
@@ -730,6 +753,7 @@ export const api = {
         companions: store.companions,
         footprints: store.footprints,
         trips: store.trips,
+        wishes: store.wishes,
       };
     });
   },
@@ -743,10 +767,112 @@ export const api = {
           companions: payload.companions ?? [],
           footprints: payload.footprints ?? [],
           trips: payload.trips ?? [],
+          wishes: payload.wishes ?? [],
         });
         return { ok: true };
       }
     ).then(() => undefined);
+  },
+
+  listWishes(includeFulfilled: boolean = false): Promise<Wish[]> {
+    return requestOrFallback(
+      `/api/wishes${includeFulfilled ? '?includeFulfilled=true' : ''}`,
+      undefined,
+      () => {
+        const store = loadStore();
+        return includeFulfilled
+          ? store.wishes
+          : store.wishes.filter((w) => !w.fulfilledFootprintId);
+      }
+    );
+  },
+
+  getWishStats(): Promise<{ totalCount: number; unfulfilledCount: number }> {
+    return requestOrFallback('/api/wishes/stats', undefined, () => {
+      const store = loadStore();
+      const unfulfilled = store.wishes.filter((w) => !w.fulfilledFootprintId).length;
+      return {
+        totalCount: store.wishes.length,
+        unfulfilledCount: unfulfilled,
+      };
+    });
+  },
+
+  createWish(input: CreateWishInput): Promise<Wish> {
+    return requestOrFallback(
+      '/api/wishes',
+      { method: 'POST', body: JSON.stringify(input) },
+      async () => {
+        let enrichedInput = { ...input };
+        if (!enrichedInput.countryCode || !enrichedInput.cityName) {
+          const enriched = await browserEnrich(
+            enrichedInput.coordinates,
+            new Date().toISOString().slice(0, 10)
+          );
+          if (enriched.geo) {
+            if (!enrichedInput.countryCode) enrichedInput.countryCode = enriched.geo.countryCode;
+            if (!enrichedInput.countryName) enrichedInput.countryName = enriched.geo.countryName;
+            if (!enrichedInput.cityName) enrichedInput.cityName = enriched.geo.cityName;
+          }
+        }
+        const store = loadStore();
+        return localCreateWish(store, enrichedInput);
+      }
+    );
+  },
+
+  updateWish(id: string, patch: Partial<CreateWishInput>): Promise<Wish> {
+    return requestOrFallback(
+      `/api/wishes/${id}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+      () => {
+        const store = loadStore();
+        const idx = store.wishes.findIndex((w) => w.id === id);
+        if (idx === -1) throw new Error('Wish not found');
+        const prev = store.wishes[idx];
+        const updated: Wish = {
+          ...prev,
+          title: patch.title !== undefined ? patch.title.trim() : prev.title,
+          coordinates: patch.coordinates ?? prev.coordinates,
+          countryCode:
+            patch.countryCode !== undefined ? patch.countryCode.toUpperCase() : prev.countryCode,
+          countryName: patch.countryName ?? prev.countryName,
+          cityName: patch.cityName ?? prev.cityName,
+          category: patch.category ?? prev.category,
+          note: patch.note !== undefined ? patch.note : prev.note,
+        };
+        store.wishes[idx] = updated;
+        saveStore(store);
+        return updated;
+      }
+    );
+  },
+
+  deleteWish(id: string): Promise<void> {
+    const cleanLocal = () => {
+      const store = loadStore();
+      store.wishes = store.wishes.filter((w) => w.id !== id);
+      saveStore(store);
+      return { ok: true };
+    };
+    return requestOrFallback(`/api/wishes/${id}`, { method: 'DELETE' }, cleanLocal).then(
+      () => undefined
+    );
+  },
+
+  fulfillWish(wishId: string, footprintId: string): Promise<Wish> {
+    return requestOrFallback(
+      `/api/wishes/${wishId}/fulfill`,
+      { method: 'POST', body: JSON.stringify({ footprintId }) },
+      () => {
+        const store = loadStore();
+        const wish = store.wishes.find((w) => w.id === wishId);
+        if (!wish) throw new Error('Wish not found');
+        wish.fulfilledFootprintId = footprintId;
+        saveStore(store);
+        return wish;
+      }
+    );
   },
 };
 

@@ -24,8 +24,9 @@ export interface CheckInModalProps {
   companions: Companion[];
   trips: Trip[];
   initialCoordinates?: Coordinates | null;
+  initialTitle?: string;
   preselectedTripDay?: { tripId: string; tripDayId: string } | null;
-  onCreated: () => void;
+  onCreated: (footprint?: Footprint) => void;
   onCompanionCreated: (c: Companion) => void;
   onClose: () => void;
 }
@@ -34,6 +35,7 @@ export function CheckInModal({
   companions,
   trips,
   initialCoordinates,
+  initialTitle,
   preselectedTripDay,
   onCreated,
   onCompanionCreated,
@@ -52,7 +54,7 @@ export function CheckInModal({
   >([]);
   const [searching, setSearching] = useState(false);
 
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle ?? '');
   const [coordinates, setCoordinates] = useState<Coordinates>(
     initialCoordinates ?? { lat: 25.0339, lng: 121.5645 }
   );
@@ -190,8 +192,9 @@ export function CheckInModal({
           weather,
           companionIds: selectedCompanionIds.length > 0 ? selectedCompanionIds : undefined,
         });
+        onCreated(res.footprint);
       } else {
-        await api.createFootprint({
+        const fp = await api.createFootprint({
           title: finalTitle,
           coordinates,
           countryCode,
@@ -206,8 +209,8 @@ export function CheckInModal({
           tripId: selectedTripId || null,
           tripDayId: selectedTripDayId || null,
         });
+        onCreated(fp);
       }
-      onCreated();
       onClose();
     } finally {
       setSaving(false);

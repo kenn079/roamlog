@@ -126,10 +126,51 @@ export interface CreateTripInput {
   extensions?: Record<string, unknown>;
 }
 
+// ─── Wish (To-Go Wishlist) ───────────────────────────────────────
+
+export type WishCategory = 'attraction' | 'food' | 'cafe' | 'nature' | 'shopping' | 'other';
+
+export const WISH_CATEGORY_LABELS: Record<WishCategory, string> = {
+  attraction: '🏛️ 景點',
+  food: '🍜 美食',
+  cafe: '☕ 咖啡廳',
+  nature: '🌿 自然',
+  shopping: '🛍️ 購物',
+  other: '📌 其他',
+};
+
+export interface Wish {
+  id: string;
+  title: string;
+  coordinates: Coordinates;
+  countryCode: string;
+  countryName: string;
+  cityName: string;
+  category: WishCategory;
+  note: string;
+  fulfilledFootprintId: string | null;
+  extensions: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CreateWishInput {
+  title: string;
+  coordinates: Coordinates;
+  countryCode?: string;
+  countryName?: string;
+  cityName?: string;
+  category?: WishCategory;
+  note?: string;
+  extensions?: Record<string, unknown>;
+}
+
+// ─── Backup ──────────────────────────────────────────────────────
+
 export interface BackupPayload {
   version: number;
   exportedAt: string;
   companions: Companion[];
   footprints: Footprint[];
   trips: Trip[];
+  wishes?: Wish[];
 }
