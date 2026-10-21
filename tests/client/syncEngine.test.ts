@@ -86,7 +86,7 @@ describe('mergeBackupStores', () => {
       cityName: 'Kyoto',
       category: 'attraction',
       note: '想去踩點',
-      fulfilledFootprintId: null, // remote was not yet marked fulfilled
+      fulfilledFootprintId: null,
       extensions: {},
       createdAt: '2026-10-20T00:00:00Z',
     };
@@ -168,5 +168,45 @@ describe('mergeBackupStores', () => {
     expect(merged.footprints.length).toBe(1);
     expect(merged.footprints[0].photos.length).toBe(2);
     expect(merged.footprints[0].note).toBe('Added notes from phone');
+  });
+
+  it('excludes deleted item IDs so deleted records are never resurrected', () => {
+    const localFp: Footprint = {
+      id: 'fp-deleted-1',
+      title: 'Deleted Place',
+      coordinates: { lat: 25, lng: 121 },
+      visitedAt: '2026-10-21',
+      photos: [],
+      note: '',
+      rating: 5,
+      weather: null,
+      companions: [],
+      tripId: null,
+      tripDayId: null,
+      extensions: {},
+      createdAt: '2026-10-21T00:00:00Z',
+    };
+
+    const local: BackupPayload = {
+      version: 1,
+      exportedAt: '2026-10-21T00:00:00Z',
+      companions: [],
+      footprints: [],
+      trips: [],
+      wishes: [],
+    };
+
+    const remote: BackupPayload = {
+      version: 1,
+      exportedAt: '2026-10-21T00:00:00Z',
+      companions: [],
+      footprints: [localFp],
+      trips: [],
+      wishes: [],
+    };
+
+    const deletedIds = new Set(['fp-deleted-1']);
+    const { merged } = mergeBackupStores(local, remote, deletedIds);
+    expect(merged.footprints.length).toBe(0);
   });
 });

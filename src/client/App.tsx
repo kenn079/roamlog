@@ -36,6 +36,11 @@ import {
   fetchRemoteFirebaseData,
   uploadToFirebase,
   subscribeToFirebaseChanges,
+  deleteFromFirebase,
+  getLocalDeletedIds,
+  recordLocalDeletedId,
+  fetchRemoteDeletedIds,
+  saveRemoteDeletedIds,
 } from './lib/firebaseSync';
 import { mergeBackupStores } from './lib/syncEngine';
 import { TripsView, computeTripRouteCoordinates } from './components/TripsView';
@@ -194,10 +199,32 @@ export function App(): React.ReactElement {
       setSyncErrorMessage(null);
 
       try {
+        const localDeleted = getLocalDeletedIds();
+        const remoteDeleted = await fetchRemoteDeletedIds(uid);
+        const allDeleted = Array.from(new Set([...localDeleted, ...remoteDeleted]));
+        if (allDeleted.length > localDeleted.length) {
+          try {
+            localStorage.setItem('roamlog_deleted_ids', JSON.stringify(allDeleted));
+          } catch {
+            // ignore
+          }
+        }
+        const deletedSet = new Set(allDeleted);
+
         const localPayload = await api.exportBackup();
         const remote = await fetchRemoteFirebaseData(uid);
 
-        const { merged, localChanged, remoteChanged } = mergeBackupStores(localPayload, remote);
+        // Delete any tombstoned items that still exist in remote Firestore
+        for (const delId of allDeleted) {
+          if (remote.footprints.some((f) => f.id === delId)) {
+            await deleteFromFirebase(uid, 'footprints', delId);
+          }
+          if (remote.wishes.some((w) => w.id === delId)) {
+            await deleteFromFirebase(uid, 'wishes', delId);
+          }
+        }
+
+        const { merged, localChanged, remoteChanged } = mergeBackupStores(localPayload, remote, deletedSet);
 
         if (localChanged) {
           await api.importBackup(merged);
@@ -207,6 +234,8 @@ export function App(): React.ReactElement {
         if (remoteChanged || remote.footprints.length === 0) {
           await uploadToFirebase(uid, merged);
         }
+
+        await saveRemoteDeletedIds(uid, allDeleted);
 
         const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setLastSyncTime(nowStr);
@@ -242,9 +271,14 @@ export function App(): React.ReactElement {
     if (!firebaseUser) return;
     const unsubscribe = subscribeToFirebaseChanges(firebaseUser.uid, async () => {
       try {
+        const localDeleted = getLocalDeletedIds();
+        const remoteDeleted = await fetchRemoteDeletedIds(firebaseUser.uid);
+        const allDeleted = Array.from(new Set([...localDeleted, ...remoteDeleted]));
+        const deletedSet = new Set(allDeleted);
+
         const remote = await fetchRemoteFirebaseData(firebaseUser.uid);
         const localPayload = await api.exportBackup();
-        const { merged, localChanged } = mergeBackupStores(localPayload, remote);
+        const { merged, localChanged } = mergeBackupStores(localPayload, remote, deletedSet);
         if (localChanged) {
           await api.importBackup(merged);
           await loadAll(filter);
@@ -293,17 +327,27 @@ export function App(): React.ReactElement {
   }
 
   async function handleDeleteFootprint(id: string) {
+    recordLocalDeletedId(id);
     await api.deleteFootprint(id);
     setSelectedFootprint(null);
     await loadAll(filter);
-    if (firebaseUser) runSync();
+    if (firebaseUser) {
+      await deleteFromFirebase(firebaseUser.uid, 'footprints', id);
+      await saveRemoteDeletedIds(firebaseUser.uid, getLocalDeletedIds());
+      await runSync();
+    }
   }
 
   async function handleDeleteWish(id: string) {
+    recordLocalDeletedId(id);
     await api.deleteWish(id);
     setSelectedWish(null);
     await loadAll(filter);
-    if (firebaseUser) runSync();
+    if (firebaseUser) {
+      await deleteFromFirebase(firebaseUser.uid, 'wishes', id);
+      await saveRemoteDeletedIds(firebaseUser.uid, getLocalDeletedIds());
+      await runSync();
+    }
   }
 
   function handleStartFulfillWish(wish: Wish) {

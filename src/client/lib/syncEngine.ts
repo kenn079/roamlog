@@ -1,7 +1,8 @@
 /**
  * Non-destructive Bidirectional Sync Reconciliation Engine for RoamLog
  * Performs union-based reconciliation across Footprints, Wishes, Trips, and Companions
- * ensuring no data or photos are lost between mobile and desktop devices.
+ * ensuring no data or photos are lost between mobile and desktop devices,
+ * while respecting tombstones (deletedIds) so deleted items are never resurrected.
  */
 
 import type { BackupPayload, Companion, Footprint, Photo, Trip, Wish } from '../../src/shared/types';
@@ -13,11 +14,28 @@ export interface MergeResult {
   remoteChanged: boolean;
 }
 
-export function mergeBackupStores(local: BackupPayload, remote: BackupPayload): MergeResult {
-  const mergedCompanions = mergeCompanions(local.companions || [], remote.companions || []);
-  const mergedFootprints = mergeFootprints(local.footprints || [], remote.footprints || []);
-  const mergedWishes = mergeWishes(local.wishes || [], remote.wishes || []);
-  const mergedTrips = mergeTrips(local.trips || [], remote.trips || []);
+export function mergeBackupStores(
+  local: BackupPayload,
+  remote: BackupPayload,
+  deletedIds?: Set<string>
+): MergeResult {
+  const isDeleted = (id: string) => Boolean(deletedIds && deletedIds.has(id));
+
+  const localCompanions = (local.companions || []).filter((c) => !isDeleted(c.id));
+  const remoteCompanions = (remote.companions || []).filter((c) => !isDeleted(c.id));
+  const mergedCompanions = mergeCompanions(localCompanions, remoteCompanions);
+
+  const localFootprints = (local.footprints || []).filter((f) => !isDeleted(f.id));
+  const remoteFootprints = (remote.footprints || []).filter((f) => !isDeleted(f.id));
+  const mergedFootprints = mergeFootprints(localFootprints, remoteFootprints);
+
+  const localWishes = (local.wishes || []).filter((w) => !isDeleted(w.id));
+  const remoteWishes = (remote.wishes || []).filter((w) => !isDeleted(w.id));
+  const mergedWishes = mergeWishes(localWishes, remoteWishes);
+
+  const localTrips = (local.trips || []).filter((t) => !isDeleted(t.id));
+  const remoteTrips = (remote.trips || []).filter((t) => !isDeleted(t.id));
+  const mergedTrips = mergeTrips(localTrips, remoteTrips);
 
   const merged: BackupPayload = {
     version: Math.max(local.version || 1, remote.version || 1),

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { BackupPayload, Footprint, Wish } from '../../src/shared/types';
 
@@ -9,7 +10,9 @@ vi.mock('firebase/app', () => ({
 
 vi.mock('firebase/auth', () => ({
   getAuth: vi.fn().mockReturnValue({}),
-  GoogleAuthProvider: vi.fn(),
+  GoogleAuthProvider: vi.fn().mockImplementation(() => ({
+    setCustomParameters: vi.fn(),
+  })),
   signInWithPopup: vi.fn().mockResolvedValue({
     user: {
       uid: 'user-123',
@@ -61,6 +64,12 @@ vi.mock('firebase/firestore', () => {
         },
       ],
     }),
+    getDoc: vi.fn().mockResolvedValue({
+      exists: () => true,
+      data: () => ({ ids: ['fp-del-1'] }),
+    }),
+    setDoc: vi.fn().mockResolvedValue(undefined),
+    deleteDoc: vi.fn().mockResolvedValue(undefined),
     writeBatch: vi.fn().mockReturnValue(mockBatch),
     onSnapshot: vi.fn().mockReturnValue(vi.fn()),
   };
@@ -71,9 +80,19 @@ import {
   logoutFirebase,
   fetchRemoteFirebaseData,
   uploadToFirebase,
+  deleteFromFirebase,
+  getLocalDeletedIds,
+  recordLocalDeletedId,
+  fetchRemoteDeletedIds,
+  saveRemoteDeletedIds,
 } from '../../src/client/lib/firebaseSync';
 
 describe('firebaseSync', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
   it('logs in with Google and returns user info', async () => {
     const user = await loginWithGoogle();
     expect(user.uid).toBe('user-123');
@@ -113,5 +132,17 @@ describe('firebaseSync', () => {
     };
 
     await expect(uploadToFirebase('user-123', mockPayload)).resolves.not.toThrow();
+  });
+
+  it('deletes document from Firestore and manages tombstoned deletion IDs', async () => {
+    await expect(deleteFromFirebase('user-123', 'footprints', 'fp-1')).resolves.not.toThrow();
+
+    recordLocalDeletedId('fp-1');
+    expect(getLocalDeletedIds()).toContain('fp-1');
+
+    const remoteIds = await fetchRemoteDeletedIds('user-123');
+    expect(remoteIds).toContain('fp-del-1');
+
+    await expect(saveRemoteDeletedIds('user-123', ['fp-1'])).resolves.not.toThrow();
   });
 });

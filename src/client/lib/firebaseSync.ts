@@ -18,6 +18,9 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
+  setDoc,
+  deleteDoc,
   writeBatch,
   onSnapshot,
   type Firestore,
@@ -82,6 +85,70 @@ export async function logoutFirebase(): Promise<void> {
 export function onFirebaseAuthState(callback: (user: User | null) => void): () => void {
   const auth = getFirebaseAuth();
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Delete a document from a user's Firestore subcollection
+ */
+export async function deleteFromFirebase(
+  uid: string,
+  collectionName: 'footprints' | 'wishes' | 'trips' | 'companions',
+  id: string
+): Promise<void> {
+  const db = getFirebaseFirestore();
+  const ref = doc(db, 'users', uid, collectionName, id);
+  await deleteDoc(ref);
+}
+
+/**
+ * Persist and retrieve tombstoned deleted IDs in LocalStorage
+ */
+export function getLocalDeletedIds(): string[] {
+  try {
+    const raw = localStorage.getItem('roamlog_deleted_ids');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordLocalDeletedId(id: string): void {
+  try {
+    const current = new Set(getLocalDeletedIds());
+    current.add(id);
+    localStorage.setItem('roamlog_deleted_ids', JSON.stringify(Array.from(current)));
+  } catch {
+    // ignore
+  }
+}
+
+export async function fetchRemoteDeletedIds(uid: string): Promise<string[]> {
+  try {
+    const db = getFirebaseFirestore();
+    const metaDoc = await getDoc(doc(db, 'users', uid, 'meta', 'deletions'));
+    if (metaDoc.exists()) {
+      return (metaDoc.data()?.ids as string[]) || [];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function saveRemoteDeletedIds(uid: string, ids: string[]): Promise<void> {
+  try {
+    const db = getFirebaseFirestore();
+    await setDoc(
+      doc(db, 'users', uid, 'meta', 'deletions'),
+      {
+        ids,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch {
+    // ignore
+  }
 }
 
 /**
