@@ -15,6 +15,7 @@ import { compressImage } from '../lib/image';
 import type {
   Companion,
   Coordinates,
+  Footprint,
   PhotoItem,
   Trip,
   WeatherInfo,
@@ -179,7 +180,7 @@ export function CheckInModal({
     setSaving(true);
     try {
       if (selectedTripDayId) {
-        await api.addLiveTripCheckIn(selectedTripDayId, {
+        const res = await api.addLiveTripCheckIn(selectedTripDayId, {
           title: finalTitle,
           coordinates,
           countryCode,

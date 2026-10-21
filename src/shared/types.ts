@@ -174,3 +174,30 @@ export interface BackupPayload {
   trips: Trip[];
   wishes?: Wish[];
 }
+
+// ─── Google Cloud Sync ──────────────────────────────────────────
+
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+
+export interface GoogleAuthInfo {
+  accessToken: string;
+  expiresAt: number;
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
+export interface SyncManifest {
+  version: number;
+  lastModified: string;
+  deviceId: string;
+  dataHash?: string;
+  photoCount: number;
+}
+
+export interface SyncState {
+  status: SyncStatus;
+  auth: GoogleAuthInfo | null;
+  lastSyncAt: string | null;
+  errorMessage?: string;
+}
