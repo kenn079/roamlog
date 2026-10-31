@@ -97,7 +97,7 @@ export function WishCardModal({
             <button
               type="button"
               onClick={() => onFulfill(wish)}
-              className="btn-primary px-4 py-2 text-xs shadow-sm flex items-center gap-1.5"
+              className="btn-cta-gradient px-4 py-2 text-xs rounded-full font-bold flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>實地踩點解鎖</span>

@@ -41,10 +41,10 @@ describe('theme', () => {
     applyTheme('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#3a2e27');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#2a201a');
 
     applyTheme('light');
     expect(document.documentElement.dataset.theme).toBe('light');
-    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#f6f1e7');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#faf6ed');
   });
 });

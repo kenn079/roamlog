@@ -21,6 +21,7 @@ import {
 import { api } from './lib/api';
 import { useTheme } from './lib/theme';
 import { TentMark } from './components/CampDecor';
+import { BackgroundEffects } from './components/BackgroundEffects';
 import { StatsBar } from './components/StatsBar';
 import { WorldMapView } from './components/WorldMapView';
 import { PolaroidModal } from './components/PolaroidModal';
@@ -398,32 +399,36 @@ export function App(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col">
+      <BackgroundEffects theme={theme} />
+
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-canvas/85 backdrop-blur-md border-b border-line px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 bg-canvas/85 backdrop-blur-md border-b border-line px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <TentMark className="w-9 h-9 shrink-0" />
+          <TentMark className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 shadow-xs" />
           <div className="min-w-0">
-            <h1 className="font-display text-lg leading-tight text-ink">RoamLog</h1>
-            <p className="text-[11px] text-ink-faint hidden sm:block">
-              點亮世界地圖 × 拍立得回憶卡 × 獨立旅程日誌
+            <h1 className="font-display text-base sm:text-lg leading-tight text-ink flex items-center gap-1.5 font-extrabold">
+              RoamLog <span className="text-accent text-xs">▲</span>
+            </h1>
+            <p className="text-[10px] sm:text-[11px] text-ink-faint hidden md:block">
+              點亮世界地圖 × 拍立得手帳 × 旅程日誌
             </p>
           </div>
         </div>
 
         {/* Center Mode Switcher */}
-        <nav className="flex items-center bg-surface-2 border border-line rounded-full p-1">
+        <nav className="flex items-center bg-surface-2/80 border border-line rounded-full p-1 shadow-xs">
           <button type="button" onClick={() => setActiveTab('world')} className={tabClass(activeTab === 'world')}>
-            <MapIcon className="w-4 h-4" />
+            <MapIcon className="w-3.5 h-3.5" />
             世界足跡庫
           </button>
 
           <button type="button" onClick={() => setActiveTab('trips')} className={tabClass(activeTab === 'trips')}>
-            <Tent className="w-4 h-4" />
+            <Tent className="w-3.5 h-3.5" />
             我的旅程本 ({trips.length})
           </button>
         </nav>
 
-        {/* Sync Pill + Theme + Settings Dropdown Popover */}
+        {/* Action Pills & Controls */}
         <div className="flex items-center gap-1.5 relative">
           {firebaseUser ? (
             <button
@@ -445,7 +450,7 @@ export function App(): React.ReactElement {
               ) : (
                 <Cloud className="w-3.5 h-3.5" />
               )}
-              <span className="hidden sm:inline">
+              <span className="hidden md:inline">
                 {syncStatus === 'syncing' ? '同步中' : syncStatus === 'error' ? '同步異常' : '已同步'}
               </span>
             </button>
@@ -457,7 +462,7 @@ export function App(): React.ReactElement {
               title="登入 Google 帳號無縫同步"
             >
               <Cloud className="w-3.5 h-3.5 text-accent" />
-              <span className="hidden sm:inline">登入同步</span>
+              <span className="hidden md:inline">登入同步</span>
             </button>
           )}
 
@@ -466,7 +471,7 @@ export function App(): React.ReactElement {
             onClick={toggleTheme}
             aria-label={theme === 'light' ? '切換深色模式' : '切換明亮模式'}
             title={theme === 'light' ? '切換深色模式' : '切換明亮模式'}
-            className="btn-ghost p-2"
+            className="btn-ghost p-2 rounded-full"
           >
             {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-sun" />}
           </button>
@@ -476,7 +481,7 @@ export function App(): React.ReactElement {
             onClick={() => setSettingsOpen((v) => !v)}
             aria-label="偏好與資料設定"
             title="系統設定"
-            className={`btn-ghost p-2 ${settingsOpen ? 'bg-surface-2 text-accent' : ''}`}
+            className={`btn-ghost p-2 rounded-full ${settingsOpen ? 'bg-surface-2 text-accent' : ''}`}
           >
             <Settings className="w-4 h-4" />
           </button>

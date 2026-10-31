@@ -497,7 +497,7 @@ export function CheckInModal({
             <button
               type="submit"
               disabled={saving}
-              className="btn-primary px-5 py-2 text-sm"
+              className="btn-cta-gradient px-6 py-2 text-sm rounded-full font-bold"
             >
               {saving ? '儲存中...' : '儲存踩點'}
             </button>

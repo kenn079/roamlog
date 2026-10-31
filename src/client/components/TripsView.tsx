@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Tent,
   Route,
+  Navigation,
+  GripVertical,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { EmptyCamp } from './CampDecor';
@@ -35,6 +37,33 @@ export function computeTripRouteCoordinates(trip: Trip): Coordinates[] {
     }
   }
   return coords;
+}
+
+function formatDaySquircle(tripStartDate?: string, dayDate?: string, dayNumber = 1) {
+  let targetDate: Date | null = null;
+  if (dayDate) {
+    targetDate = new Date(dayDate);
+  } else if (tripStartDate) {
+    const base = new Date(tripStartDate);
+    base.setDate(base.getDate() + (dayNumber - 1));
+    targetDate = base;
+  }
+
+  if (targetDate && !isNaN(targetDate.getTime())) {
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    const weekday = weekdays[targetDate.getDay()];
+    const m = targetDate.getMonth() + 1;
+    const d = targetDate.getDate();
+    return {
+      weekday,
+      dateLabel: `${m}/${d}`,
+    };
+  }
+
+  return {
+    weekday: `Day`,
+    dateLabel: `${dayNumber}`,
+  };
 }
 
 export function TripsView({
@@ -351,20 +380,33 @@ export function TripsView({
               </div>
             </div>
 
-            {/* Day Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {/* Day Date Squircle Carousel - from Reference UI */}
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-none">
               {activeTrip.days.map((d) => {
                 const isDayActive = activeDay?.id === d.id;
+                const { weekday, dateLabel } = formatDaySquircle(
+                  activeTrip.startDate,
+                  d.date,
+                  d.dayNumber
+                );
+
                 return (
                   <button
                     key={d.id}
                     type="button"
-                    data-active={isDayActive}
                     onClick={() => setSelectedDayId(d.id)}
-                    className="chip px-3.5 py-1.5 text-xs font-semibold shrink-0"
+                    className={`min-w-[50px] h-[64px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border shrink-0 ${
+                      isDayActive
+                        ? 'bg-gradient-to-b from-orange-500 to-amber-600 text-white border-accent shadow-md scale-102 font-bold'
+                        : 'bg-surface hover:bg-surface-2 border-line text-ink-soft hover:text-ink shadow-xs'
+                    }`}
                   >
-                    第 {d.dayNumber} 天
-                    {d.date ? ` (${d.date.slice(5)})` : ''}
+                    <span className={`text-[10px] font-semibold ${isDayActive ? 'text-white/90' : 'text-ink-faint'}`}>
+                      {weekday}
+                    </span>
+                    <span className="font-display text-base font-extrabold leading-none">
+                      {dateLabel}
+                    </span>
                   </button>
                 );
               })}
@@ -372,67 +414,102 @@ export function TripsView({
               <button
                 type="button"
                 onClick={handleAddDay}
-                className="px-3 py-1.5 rounded-full bg-surface-2 hover:border-ink-faint border border-dashed border-line text-xs text-ink-soft shrink-0 cursor-pointer"
+                className="min-w-[50px] h-[64px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-line hover:border-accent text-ink-soft hover:text-accent transition cursor-pointer shrink-0 bg-surface/50 text-xs font-semibold"
+                title="新增天數"
               >
-                + 新增天數
+                <Plus className="w-4 h-4" />
+                <span className="text-[10px]">加一天</span>
               </button>
             </div>
 
             {/* Active Day Timeline */}
             {activeDay && (
               <div className="space-y-4">
-                <div className="font-display text-sm font-semibold text-accent">
-                  Day {activeDay.dayNumber} · {activeDay.title}
+                {/* Day Header with Reference Pill Badges */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-accent" />
+                    <span className="font-display text-sm font-extrabold text-ink">
+                      Day {activeDay.dayNumber} 當日行程
+                    </span>
+                    {activeDay.date && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/15 text-accent font-semibold border border-accent/20">
+                        {activeDay.date}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-ink-faint">
+                    共 {activeDay.items.length} 個站點
+                  </span>
                 </div>
 
                 {activeDay.items.length === 0 ? (
-                  <div className="bg-surface-2/60 border border-line rounded-2xl p-6 text-center text-xs text-ink-soft">
-                    這一天還沒有排定或打卡的行程節點。可在下方新增預定行程，或直接點擊右上角「＋新增即時踩點」。
+                  <div className="bg-surface-2/60 border border-line rounded-2xl p-6 text-center text-xs text-ink-soft leading-relaxed">
+                    這一天還沒有排定行程。可在下方「✎ 新增預定站點」快速加入，或直接點擊右上角「＋新增即時踩點」。
                   </div>
                 ) : (
-                  <div className="space-y-3 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-line">
+                  <div className="space-y-3 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:border-l-2 before:border-dashed before:border-amber-300 dark:before:border-amber-700/60">
                     {activeDay.items.map((item) => {
                       const isVisited = Boolean(item.footprintId);
+                      const coords = item.footprint?.coordinates ?? item.coordinates;
+
                       return (
                         <div
                           key={item.id}
-                          className="relative pl-10 flex items-center justify-between gap-3 bg-surface-2/65 border border-line rounded-2xl p-3.5"
+                          className="relative pl-9 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface border border-line hover:border-accent/40 rounded-2xl p-4 shadow-xs transition"
                         >
-                          <div className="absolute left-2.5 top-4">
+                          {/* Camp Triangle Marker from Reference */}
+                          <div className="absolute left-2 top-4 flex items-center justify-center">
                             {isVisited ? (
-                              <CheckCircle2 className="w-4 h-4 text-moss bg-surface rounded-full" />
+                              <CheckCircle2 className="w-4 h-4 text-moss bg-surface rounded-full shadow-xs" />
                             ) : (
-                              <Circle className="w-4 h-4 text-ink-faint bg-surface rounded-full" />
+                              <span className="text-accent text-xs font-black select-none">▲</span>
                             )}
                           </div>
 
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              {item.plannedTime && (
-                                <span className="text-xs font-mono text-accent">
+                              {item.plannedTime ? (
+                                <span className="text-xs font-black font-mono px-2 py-0.5 rounded-md bg-surface-2 text-accent border border-line">
                                   {item.plannedTime}
                                 </span>
+                              ) : (
+                                <span className="text-[10px] text-ink-faint font-semibold px-1.5 py-0.5 rounded bg-surface-2">
+                                  行程
+                                </span>
                               )}
-                              <span className="font-display font-bold text-sm text-ink">
+                              <span className="font-display font-bold text-sm sm:text-base text-ink">
                                 {item.title}
                               </span>
                               {isVisited && (
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-moss/15 text-moss border border-moss/30 font-medium">
-                                  已踩點同步至總足跡
+                                  已打卡同步
                                 </span>
                               )}
                             </div>
                             {item.note && (
-                              <p className="text-xs text-ink-soft mt-1">{item.note}</p>
+                              <p className="text-xs text-ink-soft mt-1 leading-relaxed">{item.note}</p>
                             )}
                           </div>
 
-                          <div className="shrink-0 flex items-center gap-1.5">
+                          <div className="shrink-0 flex items-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-line/60">
+                            {coords && onViewTripOnMap && (
+                              <button
+                                type="button"
+                                title="在地圖上定位此點"
+                                onClick={() => onViewTripOnMap(activeTrip.id, [coords])}
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50/90 hover:bg-blue-100 text-blue-600 border border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40 transition cursor-pointer flex items-center gap-1 shadow-xs"
+                              >
+                                <Navigation className="w-3 h-3" />
+                                <span>導航</span>
+                              </button>
+                            )}
+
                             {isVisited && item.footprint ? (
                               <button
                                 type="button"
                                 onClick={() => onSelectFootprint(item.footprint!)}
-                                className="btn-soft px-3 py-1.5 text-xs"
+                                className="btn-soft px-3 py-1.5 text-xs rounded-full shadow-xs font-semibold"
                               >
                                 查看拍立得
                               </button>
@@ -440,11 +517,12 @@ export function TripsView({
                               <button
                                 type="button"
                                 onClick={() => handleQuickCheckInStop(item)}
-                                className="btn-primary px-3 py-1.5 text-xs"
+                                className="btn-cta-gradient px-3 py-1.5 text-xs rounded-full font-semibold"
                               >
                                 打卡踩點
                               </button>
                             )}
+
                             <button
                               type="button"
                               aria-label={`刪除 ${item.title}`}
@@ -461,34 +539,55 @@ export function TripsView({
                   </div>
                 )}
 
-                {/* Add Planned Stop Form */}
+                {/* Add Planned Stop Form - Styled like reference "記一筆" */}
                 <form
                   onSubmit={handleAddPlannedStop}
-                  className="bg-surface-2/50 border border-line rounded-2xl p-3 flex flex-col sm:flex-row gap-2"
+                  className="bg-surface border-2 border-amber-200/50 dark:border-amber-700/30 rounded-2xl p-4 space-y-3 shadow-xs"
                 >
-                  <input
-                    type="time"
-                    value={newStopTime}
-                    onChange={(e) => setNewStopTime(e.target.value)}
-                    className="field px-2.5 py-1.5 text-xs sm:w-28"
-                  />
-                  <input
-                    type="text"
-                    value={newStopTitle}
-                    onChange={(e) => setNewStopTitle(e.target.value)}
-                    placeholder="新增預定景點（如：伏見稻荷大社）..."
-                    className="field flex-1 px-3 py-1.5 text-xs"
-                  />
-                  <input
-                    type="text"
-                    value={newStopNote}
-                    onChange={(e) => setNewStopNote(e.target.value)}
-                    placeholder="備註（選填）"
-                    className="field px-3 py-1.5 text-xs sm:w-44"
-                  />
-                  <button type="submit" className="btn-soft px-3.5 py-1.5 text-xs shrink-0">
-                    ＋排入行程
-                  </button>
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-ink">
+                    <span className="text-accent">✎</span>
+                    <span>新增預定行程站點</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                    <div className="sm:col-span-3">
+                      <input
+                        type="time"
+                        value={newStopTime}
+                        onChange={(e) => setNewStopTime(e.target.value)}
+                        className="field w-full px-3 py-2 text-xs font-mono font-semibold"
+                        placeholder="時間"
+                      />
+                    </div>
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        required
+                        value={newStopTitle}
+                        onChange={(e) => setNewStopTitle(e.target.value)}
+                        placeholder="站點名稱（例如：伏見稻荷大社、一蘭拉麵）"
+                        className="field w-full px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div className="sm:col-span-4">
+                      <input
+                        type="text"
+                        value={newStopNote}
+                        onChange={(e) => setNewStopNote(e.target.value)}
+                        placeholder="備註 / 交通方式（選填）"
+                        className="field w-full px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      className="btn-cta-gradient px-5 py-2 text-xs rounded-xl w-full sm:w-auto font-bold"
+                    >
+                      ✓ 加入這站記錄
+                    </button>
+                  </div>
                 </form>
               </div>
             )}

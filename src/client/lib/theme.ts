@@ -6,8 +6,8 @@ export const THEME_STORAGE_KEY = 'roamlog-theme';
 
 /** Browser chrome colour (mobile address bar / PWA) per theme — matches --canvas. */
 const THEME_COLORS: Record<Theme, string> = {
-  light: '#f6f1e7',
-  dark: '#3a2e27',
+  light: '#faf6ed',
+  dark: '#2a201a',
 };
 
 function readStoredTheme(): Theme | null {

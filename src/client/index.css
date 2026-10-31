@@ -14,63 +14,65 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --canvas: #f6f1e7;
-  --surface: #fffdf8;
-  --surface-2: #efe8d8;
-  --line: #e2d9c5;
-  --ink: #3b3a36;
-  --ink-soft: #6f6a5e;
-  --ink-faint: #9c9584;
-  --accent: #e07a3f;
-  --accent-hover: #cc6a31;
+  --canvas: #faf6ed;
+  --canvas-dot: rgba(180, 150, 110, 0.22);
+  --surface: #ffffff;
+  --surface-2: #f6f0e4;
+  --line: #ede4d1;
+  --ink: #2f2a24;
+  --ink-soft: #6e6457;
+  --ink-faint: #9c9182;
+  --accent: #f2722b;
+  --accent-hover: #dc5d17;
   --on-accent: #ffffff;
-  --moss: #7a8b5c;
-  --moss-soft: #a9b48a;
-  --sun: #f2b544;
+  --moss: #10b981;
+  --moss-soft: #a7f3d0;
+  --sun: #f59e0b;
   --paper: #ffffff;
-  --paper-ink: #3b3a36;
-  --danger: #c0533a;
-  --overlay: rgb(59 58 54 / 0.45);
-  --shadow: 0 10px 30px -18px rgb(59 58 54 / 0.35);
+  --paper-ink: #2f2a24;
+  --danger: #ef4444;
+  --overlay: rgb(47 42 36 / 0.45);
+  --shadow: 0 12px 32px -14px rgb(47 42 36 / 0.12);
 
   /* Geometric scene colours */
-  --scene-sky: #f6f1e7;
-  --scene-far: #a9b48a;
-  --scene-near: #7a8b5c;
+  --scene-sky: #faf6ed;
+  --scene-far: #d4c5a9;
+  --scene-near: #9b8c72;
   --scene-snow: #ffffff;
-  --scene-tent: #e07a3f;
-  --scene-tent-shade: #b85e2c;
-  --scene-orb: #f2b544;
+  --scene-tent: #f2722b;
+  --scene-tent-shade: #c25215;
+  --scene-orb: #f59e0b;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #3a2e27;
-  --surface: #44362e;
-  --surface-2: #4d3d33;
-  --line: #5c4a3e;
-  --ink: #f3e6d3;
-  --ink-soft: #cdb9a0;
-  --ink-faint: #9c8670;
-  --accent: #d9733f;
-  --accent-hover: #e5834f;
+  --canvas: #2a201a;
+  --canvas-dot: rgba(245, 180, 120, 0.12);
+  --surface: #352a22;
+  --surface-2: #43352c;
+  --line: #524136;
+  --ink: #f5ebe1;
+  --ink-soft: #c8b9ab;
+  --ink-faint: #948373;
+  --accent: #e57635;
+  --accent-hover: #f08343;
   --on-accent: #ffffff;
-  --moss: #b3bc8c;
-  --moss-soft: #7d8660;
-  --sun: #e3a93b;
-  --paper: #f3e6d3;
-  --paper-ink: #4a3b32;
-  --danger: #e8846a;
-  --overlay: rgb(28 21 17 / 0.6);
-  --shadow: 0 12px 32px -16px rgb(0 0 0 / 0.55);
+  --moss: #34d399;
+  --moss-soft: #059669;
+  --sun: #fbbf24;
+  --paper: #3a2e26;
+  --paper-ink: #f5ebe1;
+  --danger: #f87171;
+  --overlay: rgb(20 15 12 / 0.65);
+  --shadow: 0 14px 36px -14px rgb(0 0 0 / 0.55);
 
-  --scene-sky: #5a3e33;
-  --scene-far: #8e4a33;
-  --scene-near: #6e3b2b;
-  --scene-snow: #f3e6d3;
-  --scene-tent: #3a2e27;
-  --scene-tent-shade: #2e241f;
-  --scene-orb: #f2a65a;
+  --scene-sky: #423126;
+  --scene-far: #6e4d3a;
+  --scene-near: #523829;
+  --scene-snow: #f5ebe1;
+  --scene-tent: #e57635;
+  --scene-tent-shade: #b0531c;
+  --scene-orb: #f59e0b;
 }
 
 @theme inline {
@@ -103,6 +105,8 @@
   html,
   body {
     background-color: var(--canvas);
+    background-image: radial-gradient(var(--canvas-dot) 1.5px, transparent 1.5px);
+    background-size: 16px 16px;
     color: var(--ink);
     transition: background-color 0.25s ease, color 0.25s ease;
   }
@@ -118,14 +122,14 @@
   .panel {
     background-color: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 1.5rem;
+    border-radius: 1.75rem;
     box-shadow: var(--shadow);
   }
 
   .field {
     background-color: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 0.875rem;
+    border-radius: 1rem;
     color: var(--ink);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
@@ -162,6 +166,37 @@
   }
   .btn-primary:hover:not(:disabled) {
     background-color: var(--accent-hover);
+  }
+
+  .btn-cta-gradient {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    box-shadow: 0 6px 16px -2px rgba(249, 115, 22, 0.38);
+    transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-cta-gradient:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -2px rgba(249, 115, 22, 0.48);
+  }
+  .btn-cta-gradient:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-cta-gradient:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  [data-theme="dark"] .btn-cta-gradient {
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    box-shadow: 0 6px 18px -2px rgba(234, 88, 12, 0.45);
   }
   .btn-soft {
     background-color: var(--surface-2);
@@ -223,4 +258,31 @@
 }
 .maplibregl-ctrl-attrib a {
   color: var(--ink-soft) !important;
+}
+
+/* ── Background ambient effects (Dark mode shooting star) ────────────────────────────── */
+
+@keyframes shooting-star {
+  0% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(620px, 390px);
+    opacity: 0;
+  }
+}
+
+.shooting-star-anim {
+  animation: shooting-star 1.6s cubic-bezier(0.16, 0.45, 0.38, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shooting-star-anim {
+    animation: none !important;
+    display: none;
+  }
 }

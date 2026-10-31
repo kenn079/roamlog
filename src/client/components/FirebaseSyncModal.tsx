@@ -171,7 +171,7 @@ export function FirebaseSyncModal({
                 type="button"
                 onClick={onManualSync}
                 disabled={syncStatus === 'syncing'}
-                className="btn-primary w-full py-2 text-xs flex items-center justify-center gap-1.5"
+                className="btn-cta-gradient w-full py-2 text-xs flex items-center justify-center gap-1.5 rounded-full"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                 <span>{syncStatus === 'syncing' ? '同步中...' : '立即同步'}</span>
@@ -204,7 +204,7 @@ export function FirebaseSyncModal({
             <button
               type="button"
               onClick={onLogin}
-              className="btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 shadow-sm"
+              className="btn-cta-gradient w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 rounded-full"
             >
               <Cloud className="w-4 h-4" />
               <span>以 Google 帳號一鍵登入</span>
