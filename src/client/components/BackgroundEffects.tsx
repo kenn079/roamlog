@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Theme } from '../lib/theme';
+import {
+  VectorTelescope,
+  VectorVintageLantern,
+  VectorCampfire,
+  VectorCampMug,
+  VectorCamera,
+  VectorCompass,
+  VectorPineTree,
+  VectorCampTent,
+} from './CampDecor';
 
 interface ShootingStarEffect {
   id: number;
@@ -223,18 +233,41 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
             <span style={{ fontSize: 7, opacity: 0.8, marginTop: 1 }}>CELESTIAL NAV</span>
           </div>
 
-          {/* Cozy Stargazing Camping Doodles in Margins (Night Edition) */}
-          <div className="absolute top-48 left-6 sm:left-10 text-xl hidden lg:block" style={{ opacity: 0.25 }} title="Stargazing Telescope">
-            🔭
+          {/* Cozy Stargazing Camping Doodles in Margins (Night Edition - Authentic Vector Line Art) */}
+          <div
+            className="absolute top-44 left-6 sm:left-10 hidden lg:flex flex-col items-center pointer-events-none text-slate-300"
+            style={{ opacity: 0.32 }}
+            title="Stargazing Refractor Telescope"
+          >
+            <VectorTelescope className="w-10 h-10" />
+            <span className="font-mono text-[7px] tracking-widest text-slate-400 mt-0.5">80mm REFRACTOR</span>
           </div>
-          <div className="absolute bottom-36 left-1/3 text-lg hidden md:block" style={{ opacity: 0.22 }} title="Campfire">
-            🔥
+
+          <div
+            className="absolute bottom-32 left-1/4 sm:left-1/3 hidden md:flex flex-col items-center pointer-events-none text-amber-400"
+            style={{ opacity: 0.3 }}
+            title="Campfire & Embers"
+          >
+            <VectorCampfire className="w-9 h-9" />
+            <span className="font-mono text-[7px] tracking-widest text-amber-300/80 mt-0.5">CAMPFIRE</span>
           </div>
-          <div className="absolute top-84 right-10 text-xl hidden xl:block" style={{ opacity: 0.24 }} title="Stargazing Mug">
-            ☕
+
+          <div
+            className="absolute top-80 right-8 sm:right-12 hidden xl:flex flex-col items-center pointer-events-none text-slate-300"
+            style={{ opacity: 0.28 }}
+            title="Warm Stargazing Coffee"
+          >
+            <VectorCampMug className="w-8 h-8" />
+            <span className="font-mono text-[7px] tracking-widest text-slate-400 mt-0.5">HOT BREW</span>
           </div>
-          <div className="absolute bottom-52 right-8 sm:right-14 text-2xl hidden lg:block" style={{ opacity: 0.28 }} title="Night Lantern">
-            🏮
+
+          <div
+            className="absolute bottom-48 right-8 sm:right-14 hidden lg:flex flex-col items-center pointer-events-none text-amber-400"
+            style={{ opacity: 0.34 }}
+            title="Vintage Hurricane Camp Lantern"
+          >
+            <VectorVintageLantern className="w-9 h-11" />
+            <span className="font-mono text-[7px] tracking-widest text-amber-300/80 mt-0.5">FEUERHAND №276</span>
           </div>
 
           {/* Natural Twinkling Stars */}
@@ -308,7 +341,7 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
               borderRadius: 20,
               border: '2px solid rgba(37, 99, 235, 0.24)',
               color: '#2563eb',
-              opacity: 0.22,
+              opacity: 0.24,
               transform: 'rotate(-12deg)',
               display: 'flex',
               flexDirection: 'column',
@@ -318,8 +351,8 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
               fontFamily: 'monospace',
             }}
           >
-            <span style={{ fontSize: 22 }}>🏕</span>
-            <span style={{ fontSize: 9, fontWeight: 900, marginTop: 2 }}>EXPEDITION</span>
+            <VectorCampTent className="w-7 h-6 mb-1 text-blue-600" />
+            <span style={{ fontSize: 9, fontWeight: 900, marginTop: 1 }}>EXPEDITION</span>
             <span style={{ fontSize: 7, opacity: 0.8 }}>FIELD NOTE</span>
           </div>
 
@@ -335,23 +368,43 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
               strokeWidth="2"
               strokeDasharray="6 6"
             />
-            <text x="320" y="32" fill="#f2722b" fontSize="14">
-              ✈
-            </text>
+            <g transform="translate(320, 32) rotate(4)">
+              <path d="M 0 0 L 12 -4 L 16 0 L 12 4 Z M 5 -1 L 8 -8 L 10 -8 L 8 -1 Z M 5 1 L 8 8 L 10 8 L 8 1 Z" fill="#f2722b" />
+            </g>
           </svg>
 
-          {/* Hand-drawn Doodles in Margins */}
-          <div className="absolute top-44 left-5 sm:left-10 text-xl hidden lg:block" style={{ opacity: 0.22 }}>
-            ☕
+          {/* Hand-drawn Doodles in Margins (Light Edition - Authentic Vector Line Art) */}
+          <div
+            className="absolute top-44 left-5 sm:left-10 hidden lg:flex flex-col items-center pointer-events-none text-stone-600"
+            style={{ opacity: 0.24 }}
+            title="Field Coffee Mug"
+          >
+            <VectorCampMug className="w-8 h-8" />
+            <span className="font-mono text-[7px] tracking-wider text-stone-500 mt-0.5">COFFEE</span>
           </div>
-          <div className="absolute bottom-60 right-6 sm:right-12 text-2xl hidden lg:block" style={{ opacity: 0.22 }}>
-            📷
+          <div
+            className="absolute bottom-60 right-6 sm:right-12 hidden lg:flex flex-col items-center pointer-events-none text-stone-600"
+            style={{ opacity: 0.24 }}
+            title="Vintage Camera"
+          >
+            <VectorCamera className="w-8 h-8" />
+            <span className="font-mono text-[7px] tracking-wider text-stone-500 mt-0.5">SNAPSHOT</span>
           </div>
-          <div className="absolute top-96 right-10 text-xl hidden xl:block" style={{ opacity: 0.22 }}>
-            🧭
+          <div
+            className="absolute top-96 right-10 hidden xl:flex flex-col items-center pointer-events-none text-stone-600"
+            style={{ opacity: 0.24 }}
+            title="Field Compass"
+          >
+            <VectorCompass className="w-8 h-8" />
+            <span className="font-mono text-[7px] tracking-wider text-stone-500 mt-0.5">COMPASS</span>
           </div>
-          <div className="absolute bottom-36 left-1/3 text-lg hidden md:block" style={{ opacity: 0.22 }}>
-            🌲
+          <div
+            className="absolute bottom-36 left-1/3 hidden md:flex flex-col items-center pointer-events-none text-emerald-800"
+            style={{ opacity: 0.24 }}
+            title="Pine Forest"
+          >
+            <VectorPineTree className="w-8 h-8" />
+            <span className="font-mono text-[7px] tracking-wider text-emerald-800 mt-0.5">FOREST</span>
           </div>
         </>
       )}
