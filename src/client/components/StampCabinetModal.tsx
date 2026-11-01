@@ -241,21 +241,14 @@ const TierRankEmblem = memo(function TierRankEmblem({
   }[tier];
 
   if (size === 'sm') {
-    // Compact graphical emblem for card header (NO TEXT)
+    // Top-right rank mark on achievement cards: only stars (留星星就好)
     return (
-      <div className="flex items-center gap-1 select-none">
-        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-          <circle cx="8" cy="8" r="7" fill={meta.rimFill} stroke={meta.rimStroke} strokeWidth="1.2" />
-          <circle cx="8" cy="8" r="5" fill={meta.coreFill} stroke={meta.accentColor} strokeWidth="0.8" strokeDasharray="1 1" />
-          <path d="M 4 11 C 5 13, 7 14, 8 14 C 9 14, 11 13, 12 11" fill="none" stroke={meta.accentColor} strokeWidth="0.9" strokeLinecap="round" />
-        </svg>
-        <div className="flex items-center gap-0.5">
-          {Array.from({ length: meta.stars }).map((_, i) => (
-            <svg key={i} viewBox="0 0 10 10" className="w-2.5 h-2.5" fill={meta.accentColor} aria-hidden="true">
-              <polygon points="5,0.8 6.3,3.5 9.3,3.9 7.1,6 7.7,9 5,7.5 2.3,9 2.9,6 0.7,3.9 3.7,3.5" />
-            </svg>
-          ))}
-        </div>
+      <div className="flex items-center gap-0.5 select-none" aria-label={`${meta.stars} stars`}>
+        {Array.from({ length: meta.stars }).map((_, i) => (
+          <svg key={i} viewBox="0 0 10 10" className="w-2.5 h-2.5" fill={meta.accentColor} aria-hidden="true">
+            <polygon points="5,0.8 6.3,3.5 9.3,3.9 7.1,6 7.7,9 5,7.5 2.3,9 2.9,6 0.7,3.9 3.7,3.5" />
+          </svg>
+        ))}
       </div>
     );
   }
@@ -353,12 +346,11 @@ const BadgeItemCard = memo(function BadgeItemCard({
       <div className="flex items-center justify-between text-[9px] font-mono mb-1 text-ink-faint">
         <span>STAMP · {def.id.replace('b-', '').toUpperCase()}</span>
         <div
-          className={`px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
+          className={`px-1.5 py-0.5 rounded-full border flex items-center ${
             isUnlocked ? tierMeta.badgeBg : 'bg-surface-2 text-ink-faint border-line'
           }`}
           title={`${tier.toUpperCase()} TIER`}
         >
-          {isUnlocked && <Sparkles className="w-2 h-2" />}
           <TierRankEmblem tier={tier} size="sm" />
         </div>
       </div>
