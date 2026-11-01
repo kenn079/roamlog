@@ -17,6 +17,9 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
+  Award,
+  CloudFog,
+  FileUp,
 } from 'lucide-react';
 import { api } from './lib/api';
 import { useTheme } from './lib/theme';
@@ -30,6 +33,9 @@ import { RetroImportModal } from './components/RetroImportModal';
 import { WishModal } from './components/WishModal';
 import { WishCardModal } from './components/WishCardModal';
 import { FirebaseSyncModal } from './components/FirebaseSyncModal';
+import { TimelineImportModal } from './components/TimelineImportModal';
+import { StampCabinetModal } from './components/StampCabinetModal';
+import { loadTrails } from './lib/trailStorage';
 import {
   loginWithGoogle,
   logoutFirebase,
@@ -58,6 +64,7 @@ import type {
   SyncStatus,
   Trip,
   Wish,
+  Trail,
 } from '../shared/types';
 
 export function App(): React.ReactElement {
@@ -79,6 +86,21 @@ export function App(): React.ReactElement {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [filter, setFilter] = useState<FootprintFilter>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [trails, setTrails] = useState<Trail[]>([]);
+  const [fogEnabled, setFogEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('roamlog_fog_enabled') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [stampCabinetOpen, setStampCabinetOpen] = useState(false);
+  const [timelineImportOpen, setTimelineImportOpen] = useState(false);
+
+  useEffect(() => {
+    loadTrails().then(setTrails);
+  }, []);
+
   const [illuminationMode, setIlluminationMode] = useState<IlluminationMode>(() => {
     try {
       const saved = localStorage.getItem('roamlog_illumination_mode');
@@ -398,7 +420,7 @@ export function App(): React.ReactElement {
     }`;
 
   return (
-    <div className="min-h-screen bg-canvas text-ink flex flex-col">
+    <div className="min-h-screen bg-journal-canvas text-ink flex flex-col">
       <BackgroundEffects theme={theme} />
 
       {/* Top Navigation Bar */}
@@ -465,6 +487,53 @@ export function App(): React.ReactElement {
               <span className="hidden md:inline">登入同步</span>
             </button>
           )}
+
+          {/* Fog Toggle */}
+          <button
+            type="button"
+            data-testid="fog-toggle-btn"
+            data-active={fogEnabled ? 'true' : 'false'}
+            onClick={() => {
+              setFogEnabled((prev) => {
+                const next = !prev;
+                try {
+                  localStorage.setItem('roamlog_fog_enabled', String(next));
+                } catch {}
+                return next;
+              });
+            }}
+            aria-label={fogEnabled ? '關閉迷霧探索' : '開啟迷霧探索'}
+            title={fogEnabled ? '迷霧探索：開啟' : '迷霧探索：關閉'}
+            className={`btn-ghost p-2 rounded-full flex items-center justify-center transition cursor-pointer ${
+              fogEnabled ? 'text-accent bg-accent/15' : 'text-ink-faint'
+            }`}
+          >
+            <CloudFog className="w-4 h-4" />
+          </button>
+
+          {/* Timeline Import */}
+          <button
+            type="button"
+            data-testid="timeline-import-btn"
+            onClick={() => setTimelineImportOpen(true)}
+            aria-label="匯入時間軸軌跡"
+            title="匯入 Google 時間軸 (Records.json) / GPX"
+            className="btn-ghost p-2 rounded-full flex items-center justify-center text-ink-soft hover:text-accent transition cursor-pointer"
+          >
+            <FileUp className="w-4 h-4" />
+          </button>
+
+          {/* Stamp Cabinet */}
+          <button
+            type="button"
+            data-testid="stamp-cabinet-btn"
+            onClick={() => setStampCabinetOpen(true)}
+            aria-label="旅行手帳印章館"
+            title="旅行手帳印章館"
+            className="btn-ghost p-2 rounded-full flex items-center justify-center text-ink-soft hover:text-accent transition cursor-pointer"
+          >
+            <Award className="w-4 h-4" />
+          </button>
 
           <button
             type="button"
@@ -724,6 +793,8 @@ export function App(): React.ReactElement {
                 visitedCountryCodes={stats.visitedCountryCodes}
                 routeCoordinates={routeCoordinates}
                 theme={theme}
+                trails={trails}
+                fogEnabled={fogEnabled}
                 illuminationMode={illuminationMode}
                 onSelectFootprint={handleSelectFootprint}
                 onSelectWish={(w) => setSelectedWish(w)}
@@ -820,6 +891,21 @@ export function App(): React.ReactElement {
           onClose={() => setRetroImportOpen(false)}
         />
       )}
+
+      <TimelineImportModal
+        isOpen={timelineImportOpen}
+        onClose={() => setTimelineImportOpen(false)}
+        onImportSuccess={() => {
+          loadTrails().then(setTrails);
+        }}
+      />
+
+      <StampCabinetModal
+        isOpen={stampCabinetOpen}
+        onClose={() => setStampCabinetOpen(false)}
+        footprints={footprints}
+        trails={trails}
+      />
 
       {firebaseSyncModalOpen && (
         <FirebaseSyncModal

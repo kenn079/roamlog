@@ -4,7 +4,9 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapPin, Trash2 } from 'lucide-react';
 import { EmptyCamp, tiltFor } from './CampDecor';
 import type { Theme } from '../lib/theme';
-import type { Coordinates, Footprint, IlluminationMode, Wish } from '../../shared/types';
+import type { Coordinates, Footprint, IlluminationMode, Wish, Trail } from '../../shared/types';
+import { generateFogMaskGeoJSON, getFogLayerStyle, generateFlightArcsGeoJSON, generateTrailsGeoJSON } from './FogLayer';
+import { extractFlightArcsFromFootprints } from '../lib/flightArcs';
 
 export interface WorldMapViewProps {
   footprints: Footprint[];
@@ -17,6 +19,8 @@ export interface WorldMapViewProps {
   onSelectWish?: (wish: Wish) => void;
   onDeleteFootprint?: (id: string) => void;
   onMapClick?: (coords: Coordinates) => void;
+  trails?: Trail[];
+  fogEnabled?: boolean;
 }
 
 export interface VisitedCityGroup {
@@ -221,6 +225,8 @@ export function WorldMapView({
   onSelectWish,
   onDeleteFootprint,
   onMapClick,
+  trails = [],
+  fogEnabled = true,
 }: WorldMapViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -456,6 +462,61 @@ export function WorldMapView({
               'line-color': '#7a8b5c',
               'line-width': 3,
               'line-dasharray': [2, 2],
+            },
+          });
+
+          // ── User Trails Layer ──
+          map.addSource('user-trails', {
+            type: 'geojson',
+            data: generateTrailsGeoJSON(trails) as any,
+          });
+          map.addLayer({
+            id: 'user-trails-line',
+            type: 'line',
+            source: 'user-trails',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+              'line-color': '#10b981',
+              'line-width': 2.5,
+              'line-opacity': 0.85,
+            },
+          });
+
+          // ── Flight Arcs Layer ──
+          const arcs = extractFlightArcsFromFootprints(footprints);
+          map.addSource('flight-arcs', {
+            type: 'geojson',
+            data: generateFlightArcsGeoJSON(arcs) as any,
+          });
+          map.addLayer({
+            id: 'flight-arcs-line',
+            type: 'line',
+            source: 'flight-arcs',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+              'line-color': '#f97316',
+              'line-width': 2,
+              'line-dasharray': [3, 2],
+              'line-opacity': 0.9,
+            },
+          });
+
+          // ── Fog of War Mask Layer ──
+          const fogStyle = getFogLayerStyle(theme || 'light');
+          map.addSource('fog-mask', {
+            type: 'geojson',
+            data: generateFogMaskGeoJSON(footprints, trails) as any,
+          });
+          map.addLayer({
+            id: 'fog-mask-fill',
+            type: 'fill',
+            source: 'fog-mask',
+            layout: {
+              visibility: fogEnabled ? 'visible' : 'none',
+            },
+            paint: {
+              'fill-color': fogStyle.fillColor,
+              'fill-opacity': fogStyle.fillOpacity,
             },
           });
         } catch {
