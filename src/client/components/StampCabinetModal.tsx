@@ -1,5 +1,36 @@
 import React, { useState } from 'react';
-import { Award, X, Check, Lock } from 'lucide-react';
+import {
+  Award,
+  X,
+  Check,
+  Lock,
+  Compass,
+  Footprints,
+  Map as MapIcon,
+  Building2,
+  Globe,
+  Plane,
+  Globe2,
+  CloudFog,
+  Bike,
+  Milestone,
+  Train,
+  Timer,
+  Waves,
+  Trees,
+  Mountain,
+  Navigation,
+  Sun,
+  Flame,
+  Snowflake,
+  Anchor,
+  Camera,
+  Sparkles,
+  Moon,
+  Flower2,
+  Route,
+  BookOpen,
+} from 'lucide-react';
 import { BADGE_DEFINITIONS, evaluateBadges } from '../lib/badges';
 import type { Footprint, Trail, Wish } from '../../shared/types';
 
@@ -13,14 +44,123 @@ interface StampCabinetModalProps {
 
 type CategoryTab = 'all' | 'footprint' | 'distance' | 'elevation' | 'geography' | 'journal';
 
-const CATEGORY_TABS: { id: CategoryTab; label: string; icon: string }[] = [
-  { id: 'all', label: '全部戳章', icon: '✨' },
-  { id: 'footprint', label: '足跡探索', icon: '🧭' },
-  { id: 'distance', label: '軌跡里程', icon: '🛤️' },
-  { id: 'elevation', label: '高山自然', icon: '⛰️' },
-  { id: 'geography', label: '極境地理', icon: '🌏' },
-  { id: 'journal', label: '手帳時光', icon: '📸' },
+const CATEGORY_TABS: { id: CategoryTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'all', label: '全部戳章', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { id: 'footprint', label: '足跡探索', icon: <Compass className="w-3.5 h-3.5" /> },
+  { id: 'distance', label: '軌跡里程', icon: <Route className="w-3.5 h-3.5" /> },
+  { id: 'elevation', label: '高山自然', icon: <Mountain className="w-3.5 h-3.5" /> },
+  { id: 'geography', label: '極境地理', icon: <Globe2 className="w-3.5 h-3.5" /> },
+  { id: 'journal', label: '手帳時光', icon: <BookOpen className="w-3.5 h-3.5" /> },
 ];
+
+/**
+ * Returns a cohesive Lucide icon consistent with RoamLog's warm journal design
+ */
+function getStampIcon(iconKey: string, className = 'w-5 h-5') {
+  switch (iconKey) {
+    case 'compass':
+      return <Compass className={className} />;
+    case 'footprints':
+      return <Footprints className={className} />;
+    case 'map':
+      return <MapIcon className={className} />;
+    case 'building':
+      return <Building2 className={className} />;
+    case 'globe':
+      return <Globe className={className} />;
+    case 'plane':
+      return <Plane className={className} />;
+    case 'globe-2':
+      return <Globe2 className={className} />;
+    case 'cloud-fog':
+      return <CloudFog className={className} />;
+    case 'bike':
+      return <Bike className={className} />;
+    case 'milestone':
+      return <Milestone className={className} />;
+    case 'train':
+      return <Train className={className} />;
+    case 'timer':
+      return <Timer className={className} />;
+    case 'waves':
+      return <Waves className={className} />;
+    case 'trees':
+      return <Trees className={className} />;
+    case 'mountain':
+      return <Mountain className={className} />;
+    case 'navigation':
+      return <Navigation className={className} />;
+    case 'sun':
+      return <Sun className={className} />;
+    case 'flame':
+      return <Flame className={className} />;
+    case 'snowflake':
+      return <Snowflake className={className} />;
+    case 'anchor':
+      return <Anchor className={className} />;
+    case 'camera':
+      return <Camera className={className} />;
+    case 'sparkles':
+      return <Sparkles className={className} />;
+    case 'moon':
+      return <Moon className={className} />;
+    case 'flower':
+      return <Flower2 className={className} />;
+    default:
+      return <Award className={className} />;
+  }
+}
+
+/**
+ * Renders an authentic vintage expedition passport stamp seal
+ */
+function StampSeal({
+  iconKey,
+  isUnlocked,
+  badgeId,
+}: {
+  iconKey: string;
+  isUnlocked: boolean;
+  badgeId: string;
+}): React.ReactElement {
+  // Deterministic subtle tilt for rubber-stamp tactile feel: -3deg to +3deg
+  const hash = badgeId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rotation = isUnlocked ? ((hash % 7) - 3) * 1.2 : 0;
+
+  return (
+    <div
+      className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform ${
+        isUnlocked
+          ? 'bg-accent/12 border-2 border-dashed border-accent/60 shadow-xs'
+          : 'bg-surface-2/60 border-2 border-dashed border-line/80'
+      }`}
+      style={{
+        transform: isUnlocked ? `rotate(${rotation}deg)` : 'none',
+      }}
+    >
+      {/* Concentric inner seal ring */}
+      <div
+        className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center border ${
+          isUnlocked
+            ? 'border-accent/40 text-accent bg-accent/5'
+            : 'border-line/60 text-ink-faint/50'
+        }`}
+      >
+        {getStampIcon(
+          iconKey,
+          isUnlocked ? 'w-5 h-5 stroke-[2.2]' : 'w-5 h-5 stroke-[1.8]'
+        )}
+      </div>
+
+      {/* Tiny vintage postal corner stamp mark */}
+      {isUnlocked && (
+        <span className="absolute -top-1 -right-1 text-[8px] font-black text-accent select-none pointer-events-none">
+          ★
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function StampCabinetModal({
   isOpen,
@@ -66,7 +206,7 @@ export function StampCabinetModal({
             <div>
               <h2 className="text-lg font-bold text-ink">旅行手帳印章館</h2>
               <p className="text-xs text-ink-soft">
-                探索真實世界、抵達地理里程碑所收集的 24 款專屬手帳郵戳
+                探索真實世界、抵達地理里程碑所收集的 24 款專屬手帳鋼印戳章
               </p>
             </div>
           </div>
@@ -121,6 +261,13 @@ export function StampCabinetModal({
             const status = badgeMap.get(def.id);
             const isUnlocked = Boolean(status?.unlocked);
             const progress = status ? Math.round(status.progress * 100) : 0;
+            const unlockedDate = status?.unlockedAt
+              ? new Date(status.unlockedAt).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                })
+              : null;
 
             return (
               <div
@@ -133,15 +280,11 @@ export function StampCabinetModal({
               >
                 {/* Vintage postal stamp scalloped look */}
                 <div className="flex items-start gap-3">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-xs border ${
-                      isUnlocked
-                        ? 'bg-accent/15 border-accent/30 scale-105 transition-transform'
-                        : 'bg-surface-2 border-line text-ink-faint grayscale'
-                    }`}
-                  >
-                    {def.icon}
-                  </div>
+                  <StampSeal
+                    iconKey={def.icon}
+                    isUnlocked={isUnlocked}
+                    badgeId={def.id}
+                  />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
@@ -161,6 +304,12 @@ export function StampCabinetModal({
                     <p className="text-xs text-ink-soft mt-1 leading-relaxed line-clamp-2">
                       {def.description}
                     </p>
+
+                    {isUnlocked && unlockedDate && (
+                      <div className="mt-1.5 font-mono text-[10px] text-accent/80 flex items-center gap-1">
+                        <span>★ 點亮於 {unlockedDate}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -179,7 +328,7 @@ export function StampCabinetModal({
 
         {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t border-line text-xs text-ink-soft">
-          <span>解鎖條件涵蓋打卡、里程、大洲、高度、海濱與極境。</span>
+          <span>印章鋼印風格與旅行手帳畫布保持一致。</span>
           <button
             type="button"
             onClick={onClose}
