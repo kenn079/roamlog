@@ -668,9 +668,6 @@ export function StampCabinetModal({
               <h3 className="text-sm sm:text-base font-black text-ink mt-0.5">
                 探險家授印總證書
               </h3>
-              <p className="text-xs text-ink-soft max-w-xs mt-1">
-                記錄真實世界的地理里程碑，蓋滿每一片探索足跡的專屬手帳
-              </p>
             </div>
 
             <div className="my-2.5 p-3 rounded-xl border border-line bg-surface flex items-center justify-around text-center shadow-xs">
