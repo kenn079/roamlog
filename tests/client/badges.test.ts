@@ -1,16 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import { BADGE_DEFINITIONS, evaluateBadges } from '../../src/client/lib/badges';
-import type { Footprint, Trail } from '../../src/shared/types';
+import type { Footprint, Trail, Wish } from '../../src/shared/types';
 
 describe('badges engine', () => {
-  it('exposes exactly 5 core travel badge definitions', () => {
-    expect(BADGE_DEFINITIONS.length).toBe(5);
+  it('exposes a diverse collection of 24 travel badge definitions', () => {
+    expect(BADGE_DEFINITIONS.length).toBe(24);
     const ids = BADGE_DEFINITIONS.map((b) => b.id);
     expect(ids).toContain('b-origin');
+    expect(ids).toContain('b-footprint-10');
+    expect(ids).toContain('b-footprint-50');
+    expect(ids).toContain('b-cities-5');
+    expect(ids).toContain('b-countries-5');
     expect(ids).toContain('b-continents');
+    expect(ids).toContain('b-world-citizen');
+    expect(ids).toContain('b-first-trail');
+    expect(ids).toContain('b-hundred-km');
     expect(ids).toContain('b-thousand-km');
+    expect(ids).toContain('b-five-thousand-km');
+    expect(ids).toContain('b-marathon');
+    expect(ids).toContain('b-sea-level');
+    expect(ids).toContain('b-highland');
     expect(ids).toContain('b-cloud-walker');
     expect(ids).toContain('b-island-rider');
+    expect(ids).toContain('b-tropic-cancer');
+    expect(ids).toContain('b-equator-crosser');
+    expect(ids).toContain('b-polar-circle');
+    expect(ids).toContain('b-island-hopper');
+    expect(ids).toContain('b-photo-album');
+    expect(ids).toContain('b-wish-fulfilled');
+    expect(ids).toContain('b-night-owl');
+    expect(ids).toContain('b-four-seasons');
   });
 
   it('evaluates b-origin (大地起點) when at least 1 footprint exists', () => {
@@ -114,5 +133,36 @@ describe('badges engine', () => {
     islandBadge = result.find((b) => b.badgeId === 'b-island-rider');
     expect(islandBadge?.unlocked).toBe(true);
     expect(islandBadge?.progress).toBe(1);
+  });
+
+  it('evaluates new diverse badges (b-cities-5, b-tropic-cancer, b-photo-album, b-wish-fulfilled)', () => {
+    const fps: Partial<Footprint>[] = [
+      { id: '1', title: 'Taipei 101', cityName: 'Taipei', coordinates: { lat: 25.03, lng: 121.56 }, photos: [{ url: '1' }, { url: '2' }] as any, visitedAt: '2024-03-01T23:30:00Z' },
+      { id: '2', title: 'Jiufen', cityName: 'New Taipei', coordinates: { lat: 25.10, lng: 121.84 }, photos: [] as any, visitedAt: '2024-07-01T10:00:00Z' },
+      { id: '3', title: 'Sun Moon Lake', cityName: 'Nantou', coordinates: { lat: 23.85, lng: 120.91 }, photos: [] as any, visitedAt: '2024-10-01T14:00:00Z' },
+      { id: '4', title: 'Alishan', cityName: 'Chiayi', coordinates: { lat: 23.51, lng: 120.80 }, photos: [] as any, visitedAt: '2024-12-15T09:00:00Z' },
+      { id: '5', title: 'Kenting', cityName: 'Pingtung', coordinates: { lat: 21.94, lng: 120.79 }, photos: [] as any, visitedAt: '2024-04-15T16:00:00Z' },
+    ];
+
+    const wishes: Partial<Wish>[] = [
+      { id: 'w-1', title: 'Climb Mt Fuji', fulfilled: true, coordinates: { lat: 35.36, lng: 138.72 } },
+    ];
+
+    const result = evaluateBadges(fps as Footprint[], [], wishes as Wish[]);
+
+    const cityBadge = result.find((b) => b.badgeId === 'b-cities-5');
+    expect(cityBadge?.unlocked).toBe(true);
+
+    const cancerBadge = result.find((b) => b.badgeId === 'b-tropic-cancer');
+    expect(cancerBadge?.unlocked).toBe(true); // Alishan ~23.51° is within 25km of 23.436°
+
+    const wishBadge = result.find((b) => b.badgeId === 'b-wish-fulfilled');
+    expect(wishBadge?.unlocked).toBe(true);
+
+    const nightBadge = result.find((b) => b.badgeId === 'b-night-owl');
+    expect(nightBadge?.unlocked).toBe(true);
+
+    const seasonsBadge = result.find((b) => b.badgeId === 'b-four-seasons');
+    expect(seasonsBadge?.unlocked).toBe(true); // March (spring), July (summer), Oct (autumn), Dec (winter)
   });
 });

@@ -240,7 +240,7 @@ export interface BadgeDefinition {
   title: string;
   description: string;
   icon: string;
-  category: 'footprint' | 'distance' | 'elevation' | 'special';
+  category: 'footprint' | 'distance' | 'elevation' | 'geography' | 'journal' | 'special';
 }
 
 export interface UserBadge {

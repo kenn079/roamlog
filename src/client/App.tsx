@@ -932,6 +932,7 @@ export function App(): React.ReactElement {
         onClose={() => setStampCabinetOpen(false)}
         footprints={footprints}
         trails={trails}
+        wishes={wishes}
       />
 
       {firebaseSyncModalOpen && (
