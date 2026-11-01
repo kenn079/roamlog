@@ -138,30 +138,32 @@ export function createFootprintMarkerElement(
 
   const card = document.createElement('div');
   card.className =
-    'w-12 h-12 rounded-sm polaroid p-1 border border-line group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden';
+    'map-polaroid-marker w-8 h-9 rounded-xs polaroid p-0.5 border border-line flex flex-col items-center justify-between overflow-hidden shadow-xs';
 
   const thumb = fp.photos[0]?.url;
   if (thumb) {
     const img = document.createElement('img');
     img.src = thumb;
     img.alt = fp.title;
-    img.className = 'w-full h-7 object-cover rounded-xs';
+    img.className = 'w-full h-5.5 object-cover rounded-[1px]';
     card.appendChild(img);
   } else {
     const placeholder = document.createElement('div');
     placeholder.className =
-      'w-full h-7 bg-accent/15 text-accent flex items-center justify-center text-xs font-bold';
-    placeholder.textContent = '⛺';
+      'w-full h-5.5 bg-accent/15 text-accent flex items-center justify-center';
+    placeholder.innerHTML =
+      '<svg class="w-3 h-3 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20 10 4"/><path d="m5 20 9-16"/><path d="M2 20h20"/><path d="m14 14-3 6"/><path d="m10 14 3 6"/></svg>';
     card.appendChild(placeholder);
   }
 
   const label = document.createElement('span');
-  label.className = 'text-[8px] font-bold text-paper-ink truncate w-full text-center mt-0.5';
+  label.className =
+    'text-[7px] font-bold text-paper-ink truncate w-full text-center leading-none mt-0.5 px-0.5';
   label.textContent = fp.title;
   card.appendChild(label);
 
   const pinTip = document.createElement('div');
-  pinTip.className = 'w-2 h-2 bg-accent rotate-45 -mt-1 shadow';
+  pinTip.className = 'w-1.5 h-1.5 bg-accent rotate-45 -mt-0.5 shadow-xs';
 
   el.appendChild(card);
   el.appendChild(pinTip);
@@ -185,23 +187,23 @@ export function createWishMarkerElement(
 
   const pin = document.createElement('div');
   pin.className =
-    'px-2 py-1 rounded-full bg-surface border-2 border-sun shadow-md group-hover:scale-110 transition-transform flex items-center gap-1';
-  pin.style.boxShadow = '0 0 10px rgba(242, 181, 68, 0.45)';
+    'map-wish-marker px-1.5 py-0.5 rounded-full bg-surface border border-sun shadow-xs flex items-center gap-1';
+  pin.style.boxShadow = '0 0 6px rgba(242, 181, 68, 0.45)';
 
   const star = document.createElement('span');
-  star.className = 'text-xs leading-none';
+  star.className = 'text-[9px] leading-none';
   star.textContent = '★';
   star.style.color = 'var(--sun)';
 
   const label = document.createElement('span');
-  label.className = 'text-[10px] font-bold text-ink max-w-[80px] truncate leading-tight';
+  label.className = 'text-[8px] font-bold text-ink max-w-[65px] truncate leading-tight';
   label.textContent = wish.title;
 
   pin.appendChild(star);
   pin.appendChild(label);
 
   const tip = document.createElement('div');
-  tip.className = 'w-1.5 h-1.5 rotate-45 -mt-0.5';
+  tip.className = 'w-1 h-1 rotate-45 -mt-0.5';
   tip.style.backgroundColor = 'var(--sun)';
 
   el.appendChild(pin);
@@ -310,6 +312,21 @@ export function WorldMapView({
       });
 
       map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+      const updateZoomTier = () => {
+        if (!containerRef.current || !map) return;
+        const z = map.getZoom();
+        const tier = z < 3.8 ? 'far' : z < 7.5 ? 'mid' : 'near';
+        if (containerRef.current.dataset.zoomTier !== tier) {
+          containerRef.current.dataset.zoomTier = tier;
+        }
+      };
+
+      map.on('zoom', updateZoomTier);
+      map.on('load', updateZoomTier);
+      if (containerRef.current) {
+        containerRef.current.dataset.zoomTier = 'far';
+      }
 
       if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
         resizeObserver = new ResizeObserver(() => {
@@ -865,6 +882,7 @@ export function WorldMapView({
           />
         ) : (
           <div
+            data-zoom-tier="far"
             onClick={(e) => {
               if (!onMapClick) return;
               const rect = e.currentTarget.getBoundingClientRect();
@@ -967,23 +985,23 @@ export function WorldMapView({
                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                 className="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center cursor-pointer z-10"
               >
-                <div className="w-12 h-12 rounded-sm polaroid p-1 border border-line group-hover:scale-110 transition transform flex flex-col items-center justify-center overflow-hidden">
+                <div className="map-polaroid-marker w-8 h-9 rounded-xs polaroid p-0.5 border border-line flex flex-col items-center justify-between overflow-hidden shadow-xs">
                   {fp.photos[0]?.url ? (
                     <img
                       src={fp.photos[0].url}
                       alt={fp.title}
-                      className="w-full h-7 object-cover rounded-xs"
+                      className="w-full h-5.5 object-cover rounded-[1px]"
                     />
                   ) : (
-                    <div className="w-full h-7 bg-accent/15 text-accent flex items-center justify-center">
-                      <Tent className="w-4 h-4 text-accent" />
+                    <div className="w-full h-5.5 bg-accent/15 text-accent flex items-center justify-center">
+                      <Tent className="w-3 h-3 text-accent" />
                     </div>
                   )}
-                  <span className="text-[8px] font-bold text-paper-ink truncate w-full text-center mt-0.5">
+                  <span className="text-[7px] font-bold text-paper-ink truncate w-full text-center leading-none mt-0.5 px-0.5">
                     {fp.title}
                   </span>
                 </div>
-                <div className="w-2 h-2 bg-accent rotate-45 -mt-1 shadow" />
+                <div className="w-1.5 h-1.5 bg-accent rotate-45 -mt-0.5 shadow-xs" />
               </button>
             );
           })}
@@ -1002,13 +1020,13 @@ export function WorldMapView({
                 className="absolute -translate-x-1/2 -translate-y-full group flex flex-col items-center cursor-pointer z-10"
               >
                 <div
-                  className="px-2 py-0.5 rounded-full bg-surface border-2 border-sun shadow-md group-hover:scale-110 transition-transform flex items-center gap-1"
-                  style={{ boxShadow: '0 0 8px rgba(242, 181, 68, 0.45)' }}
+                  className="map-wish-marker px-1.5 py-0.5 rounded-full bg-surface border border-sun shadow-xs flex items-center gap-1"
+                  style={{ boxShadow: '0 0 6px rgba(242, 181, 68, 0.45)' }}
                 >
-                  <span className="text-[10px]" style={{ color: 'var(--sun)' }}>★</span>
-                  <span className="text-[9px] font-bold text-ink max-w-[60px] truncate">{w.title}</span>
+                  <span className="text-[9px] leading-none" style={{ color: 'var(--sun)' }}>★</span>
+                  <span className="text-[8px] font-bold text-ink max-w-[65px] truncate leading-tight">{w.title}</span>
                 </div>
-                <div className="w-1.5 h-1.5 rotate-45 -mt-0.5" style={{ backgroundColor: 'var(--sun)' }} />
+                <div className="w-1 h-1 rotate-45 -mt-0.5" style={{ backgroundColor: 'var(--sun)' }} />
               </button>
             );
           })}

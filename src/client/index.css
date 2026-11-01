@@ -450,6 +450,53 @@
     0 18px 45px -10px rgba(0, 0, 0, 0.45);
 }
 
+/* ── World Map Marker Responsive Zoom Scaling ── */
+.map-polaroid-marker {
+  transform-origin: bottom center;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+[data-zoom-tier='far'] .map-polaroid-marker {
+  transform: scale(0.65);
+}
+
+[data-zoom-tier='mid'] .map-polaroid-marker {
+  transform: scale(0.85);
+}
+
+[data-zoom-tier='near'] .map-polaroid-marker {
+  transform: scale(1.05);
+}
+
+/* Hover scales up and elevates marker above surrounding map elements */
+.group:hover .map-polaroid-marker,
+.group:focus-within .map-polaroid-marker {
+  transform: scale(1.35) !important;
+  z-index: 50 !important;
+  box-shadow: 0 8px 20px -3px rgba(0, 0, 0, 0.35) !important;
+}
+
+.map-wish-marker {
+  transform-origin: bottom center;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+[data-zoom-tier='far'] .map-wish-marker {
+  transform: scale(0.72);
+}
+
+[data-zoom-tier='mid'] .map-wish-marker {
+  transform: scale(0.88);
+}
+
+.group:hover .map-wish-marker,
+.group:focus-within .map-wish-marker {
+  transform: scale(1.25) !important;
+  z-index: 50 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shooting-star-anim,
   .journal-pull-out-anim,
