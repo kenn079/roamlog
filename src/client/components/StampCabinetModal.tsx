@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   Award,
   X,
@@ -119,7 +119,7 @@ function generateRosettePath(cx = 36, cy = 36, rOuter = 33, rInner = 29.5, lobes
 
 const ROSETTE_PATH = generateRosettePath(36, 36, 33, 29.5, 16);
 
-function OrnateStampMedal({
+const OrnateStampMedal = memo(function OrnateStampMedal({
   iconKey,
   isUnlocked,
   badgeId,
@@ -141,7 +141,6 @@ function OrnateStampMedal({
       iconText: 'text-amber-600 dark:text-amber-300',
       wreathColor: '#d97706',
       stars: 3,
-      shadow: '0 4px 14px -2px rgba(245, 158, 11, 0.35)',
     },
     silver: {
       rimStroke: '#94a3b8',
@@ -150,7 +149,6 @@ function OrnateStampMedal({
       iconText: 'text-slate-600 dark:text-slate-200',
       wreathColor: '#64748b',
       stars: 2,
-      shadow: '0 4px 12px -2px rgba(148, 163, 184, 0.28)',
     },
     bronze: {
       rimStroke: '#ea580c',
@@ -159,16 +157,14 @@ function OrnateStampMedal({
       iconText: 'text-orange-600 dark:text-orange-300',
       wreathColor: '#c2410c',
       stars: 1,
-      shadow: '0 4px 12px -2px rgba(234, 88, 12, 0.25)',
     },
   }[tier];
 
   return (
     <div
-      className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center transition-transform select-none"
+      className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center select-none"
       style={{
         transform: isUnlocked ? `rotate(${rotation}deg)` : 'none',
-        filter: isUnlocked ? `drop-shadow(${tierColors.shadow})` : undefined,
       }}
     >
       <svg viewBox="0 0 72 72" className="absolute inset-0 w-full h-full" aria-hidden="true">
@@ -201,7 +197,7 @@ function OrnateStampMedal({
           </>
         )}
       </svg>
-      <div className={`relative z-10 flex items-center justify-center ${isUnlocked ? `${tierColors.iconText} drop-shadow-xs scale-105` : 'text-ink-faint/40'}`}>
+      <div className={`relative z-10 flex items-center justify-center ${isUnlocked ? `${tierColors.iconText} scale-105` : 'text-ink-faint/40'}`}>
         {getStampIcon(iconKey, isUnlocked ? 'w-5 h-5 stroke-[2.2]' : 'w-4 h-4 stroke-[1.6]')}
       </div>
       {!isUnlocked && (
@@ -211,9 +207,9 @@ function OrnateStampMedal({
       )}
     </div>
   );
-}
+});
 
-function BadgeItemCard({
+const BadgeItemCard = memo(function BadgeItemCard({
   def,
   badgeMap,
 }: {
@@ -310,7 +306,7 @@ function BadgeItemCard({
       )}
     </div>
   );
-}
+});
 
 export function StampCabinetModal({
   isOpen,
@@ -333,9 +329,18 @@ export function StampCabinetModal({
     toSpread: number;
   } | null>(null);
 
-  const userBadges = evaluateBadges(footprints, trails, wishes);
-  const badgeMap = new Map(userBadges.map((b) => [b.badgeId, b]));
-  const unlockedCount = userBadges.filter((b) => b.unlocked).length;
+  const userBadges = useMemo(
+    () => evaluateBadges(footprints, trails, wishes),
+    [footprints, trails, wishes]
+  );
+  const badgeMap = useMemo(
+    () => new Map(userBadges.map((b) => [b.badgeId, b])),
+    [userBadges]
+  );
+  const unlockedCount = useMemo(
+    () => userBadges.filter((b) => b.unlocked).length,
+    [userBadges]
+  );
 
   const footprintBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'footprint');
   const distanceBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'distance');
@@ -375,7 +380,7 @@ export function StampCabinetModal({
     setTimeout(() => {
       setCurrentSpread(target);
       setFlippingState(null);
-    }, 520);
+    }, 440);
   }
 
   function handleClose() {
@@ -383,7 +388,7 @@ export function StampCabinetModal({
     setTimeout(() => {
       setIsClosing(false);
       onClose();
-    }, 320);
+    }, 250);
   }
 
   // Left page renderer for each spread
@@ -614,7 +619,7 @@ export function StampCabinetModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-overlay/85 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 transition-opacity duration-200 ${
         isClosing ? 'opacity-0' : 'opacity-100'
       }`}
       onClick={(e) => {
@@ -670,7 +675,7 @@ export function StampCabinetModal({
           {/* ── Open Book Double-Page Surface (Two-Page Spread) ── */}
           <div className="w-full rounded-xl sm:rounded-2xl bg-canvas text-ink journal-paper-stack border border-line flex flex-col relative overflow-hidden">
             {/* Top Navigation & Status Bar */}
-            <div className="px-4 sm:px-6 py-2.5 border-b border-line bg-canvas/90 backdrop-blur-xs flex items-center justify-between gap-3 z-20">
+            <div className="px-4 sm:px-6 py-2.5 border-b border-line bg-canvas flex items-center justify-between gap-3 z-20">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-accent/15 text-accent rounded-lg">
                   <Award className="w-4 h-4" />
@@ -700,7 +705,10 @@ export function StampCabinetModal({
             </div>
 
             {/* ── Two-Page Open Spread Area with Center Spine ── */}
-            <div className="relative w-full h-[66vh] sm:h-[68vh] flex overflow-hidden bg-journal-canvas">
+            <div
+              className="relative w-full h-[66vh] sm:h-[68vh] flex overflow-hidden bg-journal-canvas"
+              style={{ perspective: '2200px' }}
+            >
               {/* Static Left Page (Verso) */}
               <div
                 className="w-full sm:w-1/2 h-full border-r border-line/60 overflow-hidden relative cursor-pointer"
@@ -741,6 +749,7 @@ export function StampCabinetModal({
                   {/* Front Face: outgoing right page */}
                   <div className="absolute inset-0 w-full h-full bg-journal-canvas border-l border-line backface-hidden overflow-hidden">
                     {renderRightPage(flippingState.fromSpread)}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                   {/* Back Face: incoming left page */}
                   <div
@@ -748,6 +757,7 @@ export function StampCabinetModal({
                     style={{ transform: 'rotateY(180deg)' }}
                   >
                     {renderLeftPage(flippingState.toSpread)}
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                 </div>
               )}
@@ -763,6 +773,7 @@ export function StampCabinetModal({
                   {/* Front Face: outgoing left page */}
                   <div className="absolute inset-0 w-full h-full bg-journal-canvas border-r border-line backface-hidden overflow-hidden">
                     {renderLeftPage(flippingState.fromSpread)}
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                   {/* Back Face: incoming right page */}
                   <div
@@ -770,13 +781,14 @@ export function StampCabinetModal({
                     style={{ transform: 'rotateY(180deg)' }}
                   >
                     {renderRightPage(flippingState.toSpread)}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                 </div>
               )}
             </div>
 
             {/* ── Book Bottom Navigation Toolbar ── */}
-            <div className="px-4 sm:px-6 py-2.5 border-t border-line bg-canvas/95 backdrop-blur-xs flex items-center justify-between gap-2 z-20">
+            <div className="px-4 sm:px-6 py-2.5 border-t border-line bg-canvas flex items-center justify-between gap-2 z-20">
               <button
                 type="button"
                 onClick={() => flipToSpread((currentSpread - 1 + TOTAL_SPREADS) % TOTAL_SPREADS, 'prev')}
