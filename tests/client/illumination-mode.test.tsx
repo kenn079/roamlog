@@ -30,53 +30,42 @@ describe('Map Illumination Mode Switcher & Styling', () => {
     },
   ];
 
-  it('renders the floating illumination mode switcher on the map with city and country options', () => {
-    const onModeChange = vi.fn();
+  it('does not render floating illumination mode buttons on the map canvas', () => {
     render(
       <WorldMapView
         footprints={dummyFootprints}
         visitedCountryCodes={['TW']}
         illuminationMode="city"
-        onIlluminationModeChange={onModeChange}
         onSelectFootprint={() => {}}
       />
     );
 
-    const cityBtn = screen.getByTestId('map-illumination-city-btn');
-    const countryBtn = screen.getByTestId('map-illumination-country-btn');
-
-    expect(cityBtn).toBeInTheDocument();
-    expect(countryBtn).toBeInTheDocument();
-
-    // In city mode, city button is active
-    expect(cityBtn).toHaveClass('bg-accent');
-    expect(countryBtn).not.toHaveClass('bg-accent');
-
-    // Click country mode
-    fireEvent.click(countryBtn);
-    expect(onModeChange).toHaveBeenCalledWith('country');
+    expect(screen.queryByTestId('map-illumination-city-btn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('map-illumination-country-btn')).not.toBeInTheDocument();
   });
 
-  it('renders country button active when illuminationMode is country', () => {
-    const onModeChange = vi.fn();
-    render(
-      <WorldMapView
-        footprints={dummyFootprints}
-        visitedCountryCodes={['TW']}
-        illuminationMode="country"
-        onIlluminationModeChange={onModeChange}
-        onSelectFootprint={() => {}}
-      />
-    );
+  it('allows switching illumination mode between city and country inside the Settings panel', async () => {
+    const { App } = await import('../../src/client/App');
+    render(<App />);
 
-    const cityBtn = screen.getByTestId('map-illumination-city-btn');
-    const countryBtn = screen.getByTestId('map-illumination-country-btn');
+    const settingsBtn = screen.getByRole('button', { name: /偏好與資料設定/i });
+    expect(settingsBtn).toBeInTheDocument();
+    fireEvent.click(settingsBtn);
 
-    expect(cityBtn).not.toHaveClass('bg-accent');
-    expect(countryBtn).toHaveClass('bg-accent');
+    const cityOption = screen.getByTestId('illumination-mode-city');
+    const countryOption = screen.getByTestId('illumination-mode-country');
+
+    expect(cityOption).toBeInTheDocument();
+    expect(countryOption).toBeInTheDocument();
+
+    // Click country mode
+    fireEvent.click(countryOption);
+    expect(countryOption).toHaveClass('bg-accent');
+    expect(cityOption).not.toHaveClass('bg-accent');
 
     // Click city mode
-    fireEvent.click(cityBtn);
-    expect(onModeChange).toHaveBeenCalledWith('city');
+    fireEvent.click(cityOption);
+    expect(cityOption).toHaveClass('bg-accent');
+    expect(countryOption).not.toHaveClass('bg-accent');
   });
 });

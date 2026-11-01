@@ -832,7 +832,6 @@ export function App(): React.ReactElement {
                 trails={trails}
                 fogEnabled={fogEnabled}
                 illuminationMode={illuminationMode}
-                onIlluminationModeChange={handleIlluminationModeChange}
                 onSelectFootprint={handleSelectFootprint}
                 onSelectWish={(w) => setSelectedWish(w)}
                 onDeleteFootprint={handleDeleteFootprint}

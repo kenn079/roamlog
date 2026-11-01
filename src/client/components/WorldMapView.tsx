@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Trash2, Compass, Building2, Globe, Tent } from 'lucide-react';
+import { MapPin, Trash2, Tent } from 'lucide-react';
 import { EmptyCamp, tiltFor } from './CampDecor';
 import type { Theme } from '../lib/theme';
 import type { Coordinates, Footprint, IlluminationMode, Wish, Trail } from '../../shared/types';
@@ -15,7 +15,6 @@ export interface WorldMapViewProps {
   routeCoordinates?: Coordinates[];
   theme?: Theme;
   illuminationMode?: IlluminationMode;
-  onIlluminationModeChange?: (mode: IlluminationMode) => void;
   onSelectFootprint: (footprint: Footprint) => void;
   onSelectWish?: (wish: Wish) => void;
   onDeleteFootprint?: (id: string) => void;
@@ -224,7 +223,6 @@ export function WorldMapView({
   routeCoordinates,
   theme = 'light',
   illuminationMode = 'city',
-  onIlluminationModeChange,
   onSelectFootprint,
   onSelectWish,
   onDeleteFootprint,
@@ -1033,48 +1031,6 @@ export function WorldMapView({
 
           <div className="absolute bottom-3 left-3 bg-surface/90 backdrop-blur-sm border border-line rounded-full px-3.5 py-1.5 text-xs text-ink-soft">
             點擊地圖任意位置即可新增踩點回憶
-          </div>
-        </div>
-      )}
-
-      {/* Floating Map Illumination Mode Switcher */}
-      {onIlluminationModeChange && (
-        <div className="absolute top-3.5 left-3.5 z-20 flex items-center bg-surface/92 backdrop-blur-md border border-amber-900/10 dark:border-amber-400/15 rounded-full p-1 shadow-sm transition">
-          <div className="px-2.5 py-1 text-[11px] font-bold text-ink-soft hidden sm:flex items-center gap-1.5 select-none">
-            <Compass className="w-3.5 h-3.5 text-accent" />
-            <span>點亮範圍</span>
-          </div>
-          <div className="flex items-center gap-1 bg-surface-2/60 p-0.5 rounded-full">
-            <button
-              type="button"
-              data-testid="map-illumination-city-btn"
-              onClick={() => onIlluminationModeChange('city')}
-              aria-label="點亮範圍：城市生活圈"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                illuminationMode === 'city'
-                  ? 'bg-accent text-on-accent shadow-xs'
-                  : 'text-ink-soft hover:text-ink hover:bg-surface-2'
-              }`}
-              title="僅點亮地標所在城市的生活圈光暈"
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>城市光暈</span>
-            </button>
-            <button
-              type="button"
-              data-testid="map-illumination-country-btn"
-              onClick={() => onIlluminationModeChange('country')}
-              aria-label="點亮範圍：完整國境版圖"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                illuminationMode === 'country'
-                  ? 'bg-accent text-on-accent shadow-xs'
-                  : 'text-ink-soft hover:text-ink hover:bg-surface-2'
-              }`}
-              title="點亮已造訪國家的完整版圖"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>國家版圖</span>
-            </button>
           </div>
         </div>
       )}
