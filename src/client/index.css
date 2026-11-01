@@ -382,6 +382,62 @@
   animation: page-turn-prev 0.38s cubic-bezier(0.25, 1, 0.35, 1);
 }
 
+/* ── Realistic 3D Book Page-Flip Keyframes ── */
+@keyframes book-flip-right-to-left {
+  0% {
+    transform: perspective(2200px) rotateY(0deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  30% {
+    transform: perspective(2200px) rotateY(-50deg) scale(0.985);
+    box-shadow: -12px 10px 28px rgba(0, 0, 0, 0.32);
+  }
+  65% {
+    transform: perspective(2200px) rotateY(-125deg) scale(0.985);
+    box-shadow: 12px 10px 28px rgba(0, 0, 0, 0.32);
+  }
+  100% {
+    transform: perspective(2200px) rotateY(-180deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@keyframes book-flip-left-to-right {
+  0% {
+    transform: perspective(2200px) rotateY(0deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  30% {
+    transform: perspective(2200px) rotateY(50deg) scale(0.985);
+    box-shadow: 12px 10px 28px rgba(0, 0, 0, 0.32);
+  }
+  65% {
+    transform: perspective(2200px) rotateY(125deg) scale(0.985);
+    box-shadow: -12px 10px 28px rgba(0, 0, 0, 0.32);
+  }
+  100% {
+    transform: perspective(2200px) rotateY(180deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.book-flip-r2l-anim {
+  transform-origin: left center;
+  animation: book-flip-right-to-left 0.52s cubic-bezier(0.25, 1, 0.35, 1) forwards;
+  transform-style: preserve-3d;
+}
+
+.book-flip-l2r-anim {
+  transform-origin: right center;
+  animation: book-flip-left-to-right 0.52s cubic-bezier(0.25, 1, 0.35, 1) forwards;
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* Journal paper edge depth styling */
 .journal-paper-stack {
   box-shadow:
