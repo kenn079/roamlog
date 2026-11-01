@@ -173,6 +173,7 @@ export interface BackupPayload {
   footprints: Footprint[];
   trips: Trip[];
   wishes?: Wish[];
+  trails?: Trail[];
 }
 
 // ─── Google Cloud Sync ──────────────────────────────────────────
@@ -200,4 +201,51 @@ export interface SyncState {
   auth: GoogleAuthInfo | null;
   lastSyncAt: string | null;
   errorMessage?: string;
+}
+
+
+// ─── Trails, Flight Arcs & Travel Badges ────────────────────────
+
+export interface TrailPoint {
+  lat: number;
+  lng: number;
+  elevation?: number;
+  time?: string;
+}
+
+export interface Trail {
+  id: string;
+  title: string;
+  color?: string;
+  points: TrailPoint[];
+  distanceKm: number;
+  startTime?: string;
+  endTime?: string;
+  tripId?: string | null;
+  source: 'google-timeline' | 'gpx' | 'kml' | 'geojson';
+  createdAt: string;
+}
+
+export interface FlightArc {
+  id: string;
+  fromCity: string;
+  toCity: string;
+  fromCoords: Coordinates;
+  toCoords: Coordinates;
+  points: [number, number][]; // [lng, lat]
+}
+
+export interface BadgeDefinition {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: 'footprint' | 'distance' | 'elevation' | 'special';
+}
+
+export interface UserBadge {
+  badgeId: string;
+  unlockedAt: string;
+  progress: number; // 0 to 1
+  unlocked: boolean;
 }
