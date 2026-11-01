@@ -123,7 +123,7 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
 
           {/* Delicate Big Dipper Constellation (北斗七星) Watermark */}
           <svg
-            className="absolute top-12 right-8 sm:right-24 w-72 h-44 hidden md:block"
+            className="absolute top-12 right-8 sm:right-24 w-72 h-44 hidden md:block pointer-events-none"
             style={{ opacity: 0.3 }}
             fill="none"
           >
@@ -149,6 +149,93 @@ export function BackgroundEffects({ theme }: { theme: Theme }): React.ReactEleme
               </g>
             ))}
           </svg>
+
+          {/* Delicate Cassiopeia Constellation (仙后座 "W") Watermark */}
+          <svg
+            className="absolute top-28 left-6 sm:left-20 w-52 h-36 hidden md:block pointer-events-none"
+            style={{ opacity: 0.28 }}
+            fill="none"
+          >
+            <path
+              d="M 15 25 L 45 75 L 80 40 L 120 80 L 150 20"
+              stroke="rgba(255, 255, 255, 0.22)"
+              strokeWidth="1.2"
+              strokeDasharray="4 4"
+            />
+            {[
+              { cx: 15, cy: 25, r: 2.2 },
+              { cx: 45, cy: 75, r: 2.4 },
+              { cx: 80, cy: 40, r: 2.2 },
+              { cx: 120, cy: 80, r: 2.5 },
+              { cx: 150, cy: 20, r: 2.8 },
+            ].map((p, idx) => (
+              <g key={idx}>
+                <circle cx={p.cx} cy={p.cy} r={p.r * 2} fill="rgba(251, 191, 36, 0.22)" />
+                <circle cx={p.cx} cy={p.cy} r={p.r} fill="#ffffff" />
+              </g>
+            ))}
+            <text x="56" y="96" fill="rgba(255, 255, 255, 0.35)" fontSize="9" fontFamily="monospace" letterSpacing="1">
+              ★ CASSIOPEIA
+            </text>
+          </svg>
+
+          {/* Night Flight Glowing Route with Airplane */}
+          <svg
+            className="absolute top-3 left-1/4 w-1/2 h-28 hidden md:block pointer-events-none"
+            style={{ opacity: 0.22 }}
+            fill="none"
+          >
+            <path
+              d="M 10 65 Q 160 12 340 38 T 640 18"
+              stroke="rgba(255, 255, 255, 0.22)"
+              strokeWidth="1.5"
+              strokeDasharray="5 6"
+            />
+            <g transform="translate(340, 32) rotate(4)">
+              <path d="M 0 0 L 12 -4 L 16 0 L 12 4 Z M 5 -1 L 8 -8 L 10 -8 L 8 -1 Z M 5 1 L 8 8 L 10 8 L 8 1 Z" fill="#ffffff" />
+              <circle cx="16" cy="0" r="1.5" fill="#38bdf8" />
+              <circle cx="8" cy="-8" r="1.2" fill="#ef4444" />
+              <circle cx="8" cy="8" r="1.2" fill="#22c55e" />
+            </g>
+          </svg>
+
+          {/* Bottom-left Polaris Celestial Compass Watermark */}
+          <div
+            className="absolute bottom-14 left-6 sm:left-14 hidden md:flex flex-col items-center justify-center pointer-events-none select-none"
+            style={{
+              width: 130,
+              height: 130,
+              borderRadius: '50%',
+              border: '2px dashed rgba(251, 191, 36, 0.22)',
+              opacity: 0.25,
+              transform: 'rotate(-8deg)',
+              color: '#fbbf24',
+              fontFamily: 'monospace',
+              textAlign: 'center',
+            }}
+          >
+            <svg viewBox="0 0 40 40" className="w-9 h-9 mb-1" fill="none">
+              <circle cx="20" cy="20" r="17" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="0.8" strokeDasharray="2 2" />
+              <path d="M 20 4 L 22 17 L 35 20 L 22 23 L 20 36 L 18 23 L 5 20 L 18 17 Z" fill="rgba(251, 191, 36, 0.4)" stroke="#fbbf24" strokeWidth="0.8" />
+              <circle cx="20" cy="20" r="2" fill="#ffffff" />
+            </svg>
+            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: 1 }}>★ POLARIS ★</span>
+            <span style={{ fontSize: 7, opacity: 0.8, marginTop: 1 }}>CELESTIAL NAV</span>
+          </div>
+
+          {/* Cozy Stargazing Camping Doodles in Margins (Night Edition) */}
+          <div className="absolute top-48 left-6 sm:left-10 text-xl hidden lg:block" style={{ opacity: 0.25 }} title="Stargazing Telescope">
+            🔭
+          </div>
+          <div className="absolute bottom-36 left-1/3 text-lg hidden md:block" style={{ opacity: 0.22 }} title="Campfire">
+            🔥
+          </div>
+          <div className="absolute top-84 right-10 text-xl hidden xl:block" style={{ opacity: 0.24 }} title="Stargazing Mug">
+            ☕
+          </div>
+          <div className="absolute bottom-52 right-8 sm:right-14 text-2xl hidden lg:block" style={{ opacity: 0.28 }} title="Night Lantern">
+            🏮
+          </div>
 
           {/* Natural Twinkling Stars */}
           {NIGHT_SKY_STARS.map((star, idx) => (
