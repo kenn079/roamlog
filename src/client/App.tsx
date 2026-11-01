@@ -20,6 +20,7 @@ import {
   Award,
   CloudFog,
   FileUp,
+  Compass,
 } from 'lucide-react';
 import { api } from './lib/api';
 import { useTheme } from './lib/theme';
@@ -607,17 +608,24 @@ export function App(): React.ReactElement {
 
                 {/* Section 1: 地圖點亮範圍 */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-ink-soft block">
-                    地圖點亮範圍
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-accent" />
+                      地圖點亮範圍
+                    </label>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-accent border border-accent/20">
+                      {illuminationMode === 'city' ? '城市生活圈' : '完整國境版圖'}
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-2 border border-line rounded-xl">
                     <button
                       type="button"
+                      data-testid="illumination-mode-city"
                       onClick={() => handleIlluminationModeChange('city')}
-                      className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         illuminationMode === 'city'
-                          ? 'bg-accent text-on-accent shadow-xs'
-                          : 'text-ink-soft hover:text-ink'
+                          ? 'bg-accent text-on-accent shadow-xs ring-1 ring-accent/30'
+                          : 'text-ink-soft hover:text-ink hover:bg-surface/50'
                       }`}
                     >
                       <Building2 className="w-3.5 h-3.5" />
@@ -625,11 +633,12 @@ export function App(): React.ReactElement {
                     </button>
                     <button
                       type="button"
+                      data-testid="illumination-mode-country"
                       onClick={() => handleIlluminationModeChange('country')}
-                      className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         illuminationMode === 'country'
-                          ? 'bg-accent text-on-accent shadow-xs'
-                          : 'text-ink-soft hover:text-ink'
+                          ? 'bg-accent text-on-accent shadow-xs ring-1 ring-accent/30'
+                          : 'text-ink-soft hover:text-ink hover:bg-surface/50'
                       }`}
                     >
                       <Globe className="w-3.5 h-3.5" />
@@ -823,6 +832,7 @@ export function App(): React.ReactElement {
                 trails={trails}
                 fogEnabled={fogEnabled}
                 illuminationMode={illuminationMode}
+                onIlluminationModeChange={handleIlluminationModeChange}
                 onSelectFootprint={handleSelectFootprint}
                 onSelectWish={(w) => setSelectedWish(w)}
                 onDeleteFootprint={handleDeleteFootprint}

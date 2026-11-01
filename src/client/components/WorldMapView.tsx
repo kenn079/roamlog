@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Trash2 } from 'lucide-react';
+import { MapPin, Trash2, Compass, Building2, Globe, Tent } from 'lucide-react';
 import { EmptyCamp, tiltFor } from './CampDecor';
 import type { Theme } from '../lib/theme';
 import type { Coordinates, Footprint, IlluminationMode, Wish, Trail } from '../../shared/types';
@@ -15,6 +15,7 @@ export interface WorldMapViewProps {
   routeCoordinates?: Coordinates[];
   theme?: Theme;
   illuminationMode?: IlluminationMode;
+  onIlluminationModeChange?: (mode: IlluminationMode) => void;
   onSelectFootprint: (footprint: Footprint) => void;
   onSelectWish?: (wish: Wish) => void;
   onDeleteFootprint?: (id: string) => void;
@@ -221,6 +222,7 @@ export function WorldMapView({
   routeCoordinates,
   theme = 'light',
   illuminationMode = 'city',
+  onIlluminationModeChange,
   onSelectFootprint,
   onSelectWish,
   onDeleteFootprint,
@@ -320,12 +322,38 @@ export function WorldMapView({
         map.resize();
 
         try {
+          // ── 1. Fog of War Mask Layer (covers the unvisited/foggy world) ──
+          const fogStyle = getFogLayerStyle(theme || 'light');
+          map.addSource('fog-mask', {
+            type: 'geojson',
+            data: generateFogMaskGeoJSON(footprints, trails) as any,
+          });
+          map.addLayer({
+            id: 'fog-mask-fill',
+            type: 'fill',
+            source: 'fog-mask',
+            layout: {
+              visibility: fogEnabled ? 'visible' : 'none',
+            },
+            paint: {
+              'fill-color': fogStyle.fillColor,
+              'fill-opacity': fogStyle.fillOpacity,
+            },
+          });
+
+          // ── 2. Visited Countries Illumination Layer (Renders ABOVE the fog mask so visited countries glow brightly!) ──
           map.addSource('visited-countries', {
             type: 'geojson',
             data: COUNTRIES_GEOJSON_URL,
           });
 
-          const initialCodes = visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__'];
+          const activeCodes = Array.from(
+            new Set([
+              ...visitedCountryCodes.map((c) => c.toUpperCase()),
+              ...footprints.map((fp) => fp.countryCode?.trim().toUpperCase()).filter(Boolean),
+            ])
+          );
+          const initialCodes = activeCodes.length ? activeCodes : ['__NONE__'];
 
           map.addLayer({
             id: 'visited-countries-fill',
@@ -335,8 +363,8 @@ export function WorldMapView({
               visibility: illuminationMode === 'country' ? 'visible' : 'none',
             },
             paint: {
-              'fill-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
-              'fill-opacity': 0.3,
+              'fill-color': theme === 'dark' ? '#f59e0b' : '#f97316',
+              'fill-opacity': theme === 'dark' ? 0.45 : 0.38,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
           });
@@ -349,12 +377,13 @@ export function WorldMapView({
               visibility: illuminationMode === 'country' ? 'visible' : 'none',
             },
             paint: {
-              'line-color': theme === 'dark' ? '#f2a65a' : '#c8643b',
-              'line-width': 1.8,
+              'line-color': theme === 'dark' ? '#fbbf24' : '#c2410c',
+              'line-width': 2.2,
             },
             filter: ['in', 'iso_a2', ...initialCodes],
           });
 
+          // ── 3. Visited Cities Illumination Layer (Renders ABOVE the fog mask) ──
           const initialCitiesGeoJson = buildCitiesGeoJson(groupFootprintsByCity(footprints));
           map.addSource('visited-cities', {
             type: 'geojson',
@@ -375,16 +404,16 @@ export function WorldMapView({
                 ['linear'],
                 ['zoom'],
                 1,
-                12,
+                14,
                 3,
-                22,
+                24,
                 6,
-                42,
+                45,
                 10,
-                75,
+                80,
               ],
-              'circle-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
-              'circle-opacity': 0.38,
+              'circle-color': theme === 'dark' ? '#fbbf24' : '#ea580c',
+              'circle-opacity': 0.42,
               'circle-blur': 0.6,
             },
           });
@@ -398,7 +427,7 @@ export function WorldMapView({
               visibility: illuminationMode === 'city' ? 'visible' : 'none',
             },
             paint: {
-              'fill-color': theme === 'dark' ? '#e3a93b' : '#e07a3f',
+              'fill-color': theme === 'dark' ? '#fbbf24' : '#ea580c',
               'fill-opacity': 0.35,
             },
           });
@@ -412,7 +441,7 @@ export function WorldMapView({
               visibility: illuminationMode === 'city' ? 'visible' : 'none',
             },
             paint: {
-              'line-color': theme === 'dark' ? '#f2a65a' : '#c8643b',
+              'line-color': theme === 'dark' ? '#f59e0b' : '#c2410c',
               'line-width': 2,
               'line-dasharray': [3, 2],
             },
@@ -432,12 +461,13 @@ export function WorldMapView({
               'text-allow-overlap': false,
             },
             paint: {
-              'text-color': theme === 'dark' ? '#f3e6d3' : '#3b3a36',
-              'text-halo-color': theme === 'dark' ? '#3a2e27' : '#ffffff',
-              'text-halo-width': 1.5,
+              'text-color': theme === 'dark' ? '#fde68a' : '#431407',
+              'text-halo-color': theme === 'dark' ? '#1e1b18' : '#ffffff',
+              'text-halo-width': 1.8,
             },
           });
 
+          // ── 4. Trip Route Layer ──
           map.addSource('trip-route', {
             type: 'geojson',
             data: {
@@ -465,7 +495,7 @@ export function WorldMapView({
             },
           });
 
-          // ── User Trails Layer ──
+          // ── 5. User Trails Layer ──
           map.addSource('user-trails', {
             type: 'geojson',
             data: generateTrailsGeoJSON(trails) as any,
@@ -482,7 +512,7 @@ export function WorldMapView({
             },
           });
 
-          // ── Flight Arcs Layer ──
+          // ── 6. Flight Arcs Layer ──
           const arcs = extractFlightArcsFromFootprints(footprints);
           map.addSource('flight-arcs', {
             type: 'geojson',
@@ -498,25 +528,6 @@ export function WorldMapView({
               'line-width': 2,
               'line-dasharray': [3, 2],
               'line-opacity': 0.9,
-            },
-          });
-
-          // ── Fog of War Mask Layer ──
-          const fogStyle = getFogLayerStyle(theme || 'light');
-          map.addSource('fog-mask', {
-            type: 'geojson',
-            data: generateFogMaskGeoJSON(footprints, trails) as any,
-          });
-          map.addLayer({
-            id: 'fog-mask-fill',
-            type: 'fill',
-            source: 'fog-mask',
-            layout: {
-              visibility: fogEnabled ? 'visible' : 'none',
-            },
-            paint: {
-              'fill-color': fogStyle.fillColor,
-              'fill-opacity': fogStyle.fillOpacity,
             },
           });
         } catch {
@@ -586,47 +597,52 @@ export function WorldMapView({
         map.setPaintProperty(
           'visited-countries-fill',
           'fill-color',
-          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+          theme === 'dark' ? '#f59e0b' : '#f97316'
+        );
+        map.setPaintProperty(
+          'visited-countries-fill',
+          'fill-opacity',
+          theme === 'dark' ? 0.45 : 0.38
         );
       }
       if (map.getLayer('visited-countries-outline')) {
         map.setPaintProperty(
           'visited-countries-outline',
           'line-color',
-          theme === 'dark' ? '#f2a65a' : '#c8643b'
+          theme === 'dark' ? '#fbbf24' : '#c2410c'
         );
       }
       if (map.getLayer('visited-cities-glow')) {
         map.setPaintProperty(
           'visited-cities-glow',
           'circle-color',
-          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+          theme === 'dark' ? '#fbbf24' : '#ea580c'
         );
       }
       if (map.getLayer('visited-cities-fill')) {
         map.setPaintProperty(
           'visited-cities-fill',
           'fill-color',
-          theme === 'dark' ? '#e3a93b' : '#e07a3f'
+          theme === 'dark' ? '#fbbf24' : '#ea580c'
         );
       }
       if (map.getLayer('visited-cities-outline')) {
         map.setPaintProperty(
           'visited-cities-outline',
           'line-color',
-          theme === 'dark' ? '#f2a65a' : '#c8643b'
+          theme === 'dark' ? '#f59e0b' : '#c2410c'
         );
       }
       if (map.getLayer('visited-cities-label')) {
         map.setPaintProperty(
           'visited-cities-label',
           'text-color',
-          theme === 'dark' ? '#f3e6d3' : '#3b3a36'
+          theme === 'dark' ? '#fde68a' : '#431407'
         );
         map.setPaintProperty(
           'visited-cities-label',
           'text-halo-color',
-          theme === 'dark' ? '#3a2e27' : '#ffffff'
+          theme === 'dark' ? '#1e1b18' : '#ffffff'
         );
       }
       if (map.getLayer('fog-mask-fill')) {
@@ -712,10 +728,16 @@ export function WorldMapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    const activeCountryCodes = Array.from(
+      new Set([
+        ...visitedCountryCodes.map((c) => c.toUpperCase()),
+        ...footprints.map((fp) => fp.countryCode?.trim().toUpperCase()).filter(Boolean),
+      ])
+    );
     const filterExpr: any = [
       'in',
       'iso_a2',
-      ...(visitedCountryCodes.length ? visitedCountryCodes : ['__NONE__']),
+      ...(activeCountryCodes.length ? activeCountryCodes : ['__NONE__']),
     ];
     try {
       if (map.getLayer('visited-countries-fill')) {
@@ -727,7 +749,7 @@ export function WorldMapView({
     } catch {
       // Ignore filter errors if layer not yet ready
     }
-  }, [visitedCountryCodes, mapReady]);
+  }, [visitedCountryCodes, footprints, mapReady]);
 
   // Update trip route line
   useEffect(() => {
@@ -826,8 +848,8 @@ export function WorldMapView({
 
   return (
     <div className="relative w-full flex-1 flex flex-col">
-      {!webglError ? (
-        <div className="relative w-full h-[460px] sm:h-[500px] rounded-3xl overflow-hidden border border-line shadow-soft">
+      <div className="relative w-full h-[460px] sm:h-[500px] rounded-3xl overflow-hidden border border-line shadow-soft">
+        {!webglError ? (
           <div
             ref={containerRef}
             style={{
@@ -841,20 +863,19 @@ export function WorldMapView({
             }}
             className="w-full h-full"
           />
-        </div>
-      ) : (
-        <div
-          onClick={(e) => {
-            if (!onMapClick) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const relX = (e.clientX - rect.left) / rect.width;
-            const relY = (e.clientY - rect.top) / rect.height;
-            const lng = Number((relX * 360 - 180).toFixed(4));
-            const lat = Number((90 - relY * 180).toFixed(4));
-            onMapClick({ lat, lng });
-          }}
-          className="relative w-full h-[460px] rounded-3xl bg-surface-2 border border-line overflow-hidden cursor-crosshair select-none shadow-soft"
-        >
+        ) : (
+          <div
+            onClick={(e) => {
+              if (!onMapClick) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const relX = (e.clientX - rect.left) / rect.width;
+              const relY = (e.clientY - rect.top) / rect.height;
+              const lng = Number((relX * 360 - 180).toFixed(4));
+              const lat = Number((90 - relY * 180).toFixed(4));
+              onMapClick({ lat, lng });
+            }}
+            className="relative w-full h-full bg-surface-2 overflow-hidden cursor-crosshair select-none"
+          >
           {/* SVG World Map Fallback (Zero API Key & Zero WebGL Required) */}
           <svg
             viewBox="0 0 1000 500"
@@ -954,8 +975,8 @@ export function WorldMapView({
                       className="w-full h-7 object-cover rounded-xs"
                     />
                   ) : (
-                    <div className="w-full h-7 bg-accent/15 text-accent flex items-center justify-center text-xs">
-                      ⛺
+                    <div className="w-full h-7 bg-accent/15 text-accent flex items-center justify-center">
+                      <Tent className="w-4 h-4 text-accent" />
                     </div>
                   )}
                   <span className="text-[8px] font-bold text-paper-ink truncate w-full text-center mt-0.5">
@@ -997,6 +1018,49 @@ export function WorldMapView({
           </div>
         </div>
       )}
+
+      {/* Floating Map Illumination Mode Switcher */}
+      {onIlluminationModeChange && (
+        <div className="absolute top-3.5 left-3.5 z-20 flex items-center bg-surface/92 backdrop-blur-md border border-amber-900/10 dark:border-amber-400/15 rounded-full p-1 shadow-sm transition">
+          <div className="px-2.5 py-1 text-[11px] font-bold text-ink-soft hidden sm:flex items-center gap-1.5 select-none">
+            <Compass className="w-3.5 h-3.5 text-accent" />
+            <span>點亮範圍</span>
+          </div>
+          <div className="flex items-center gap-1 bg-surface-2/60 p-0.5 rounded-full">
+            <button
+              type="button"
+              data-testid="map-illumination-city-btn"
+              onClick={() => onIlluminationModeChange('city')}
+              aria-label="點亮範圍：城市生活圈"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                illuminationMode === 'city'
+                  ? 'bg-accent text-on-accent shadow-xs'
+                  : 'text-ink-soft hover:text-ink hover:bg-surface-2'
+              }`}
+              title="僅點亮地標所在城市的生活圈光暈"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>城市光暈</span>
+            </button>
+            <button
+              type="button"
+              data-testid="map-illumination-country-btn"
+              onClick={() => onIlluminationModeChange('country')}
+              aria-label="點亮範圍：完整國境版圖"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                illuminationMode === 'country'
+                  ? 'bg-accent text-on-accent shadow-xs'
+                  : 'text-ink-soft hover:text-ink hover:bg-surface-2'
+              }`}
+              title="點亮已造訪國家的完整版圖"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>國家版圖</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
 
       {/* Bottom Polaroid Strip for quick browsing on both mobile & desktop */}
       <div className="mt-5">
@@ -1045,8 +1109,8 @@ export function WorldMapView({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-accent text-xl">
-                        ⛺
+                      <div className="w-full h-full flex items-center justify-center text-accent">
+                        <Tent className="w-6 h-6 text-accent/60" />
                       </div>
                     )}
                     {fp.weather && (
