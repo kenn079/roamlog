@@ -318,31 +318,36 @@ const BadgeItemCard = memo(function BadgeItemCard({
 
   const tierMeta = {
     gold: {
-      cardBorder: isUnlocked
-        ? 'border-amber-400/60 dark:border-amber-500/50 bg-gradient-to-br from-amber-500/8 via-surface to-yellow-500/5'
-        : 'border-line/70 bg-surface/50',
-      badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/30',
+      cardBg: isUnlocked
+        ? 'border-amber-400/80 dark:border-amber-500/60 shadow-xs'
+        : 'border-line/80 shadow-2xs',
+      badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/40',
+      accentGlow: isUnlocked ? 'bg-amber-500/8 dark:bg-amber-500/12' : '',
     },
     silver: {
-      cardBorder: isUnlocked
-        ? 'border-slate-300/80 dark:border-slate-500/50 bg-gradient-to-br from-slate-400/8 via-surface to-slate-200/5'
-        : 'border-line/70 bg-surface/50',
+      cardBg: isUnlocked
+        ? 'border-slate-300 dark:border-slate-500/60 shadow-xs'
+        : 'border-line/80 shadow-2xs',
       badgeBg: 'bg-slate-400/15 text-slate-700 dark:text-slate-200 border-slate-300/40',
+      accentGlow: isUnlocked ? 'bg-slate-400/8 dark:bg-slate-400/12' : '',
     },
     bronze: {
-      cardBorder: isUnlocked
-        ? 'border-orange-400/50 dark:border-orange-500/40 bg-gradient-to-br from-orange-500/8 via-surface to-amber-500/5'
-        : 'border-line/70 bg-surface/50',
-      badgeBg: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-400/30',
+      cardBg: isUnlocked
+        ? 'border-orange-400/70 dark:border-orange-500/60 shadow-xs'
+        : 'border-line/80 shadow-2xs',
+      badgeBg: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-400/40',
+      accentGlow: isUnlocked ? 'bg-orange-500/8 dark:bg-orange-500/12' : '',
     },
   }[tier];
 
   return (
     <div
-      className={`p-2.5 rounded-xl border-2 transition-all flex flex-col justify-between relative overflow-hidden ${
-        tierMeta.cardBorder
-      } ${isUnlocked ? 'shadow-xs hover:scale-[1.01]' : 'opacity-85'}`}
+      className={`p-2.5 rounded-xl border-2 transition-all flex flex-col justify-between relative overflow-hidden bg-surface ${
+        tierMeta.cardBg
+      } ${isUnlocked ? 'hover:scale-[1.01]' : ''}`}
     >
+      {/* Subtle tier ambient paper tint */}
+      {isUnlocked && <div className={`absolute inset-0 pointer-events-none ${tierMeta.accentGlow}`} />}
       <div className="flex items-center justify-between text-[9px] font-mono mb-1 text-ink-faint">
         <span>STAMP · {def.id.replace('b-', '').toUpperCase()}</span>
         <div
@@ -668,7 +673,7 @@ export function StampCabinetModal({
               </p>
             </div>
 
-            <div className="my-2.5 p-3 rounded-xl border border-line bg-surface/60 flex items-center justify-around text-center">
+            <div className="my-2.5 p-3 rounded-xl border border-line bg-surface flex items-center justify-around text-center shadow-xs">
               <div>
                 <span className="text-[10px] text-ink-soft font-mono">已授印勳章</span>
                 <div className="text-lg font-black text-accent mt-0.5">
@@ -686,31 +691,34 @@ export function StampCabinetModal({
 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div
-                className="p-2 rounded-xl bg-amber-500/10 border border-amber-400/30 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                className="p-2.5 rounded-xl bg-surface border-2 border-amber-400/60 dark:border-amber-500/50 flex flex-col items-center justify-center gap-1.5 shadow-xs relative overflow-hidden"
                 title="Gold Tier (★★★)"
               >
+                <div className="absolute inset-0 bg-amber-500/8 dark:bg-amber-500/12 pointer-events-none" />
                 <TierRankEmblem tier="gold" size="lg" />
-                <span className="font-mono font-black text-ink text-xs">
+                <span className="font-mono font-black text-ink text-xs relative z-10">
                   {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'gold' && badgeMap.get(b.id)?.unlocked).length}{' '}
                   <span className="text-[10px] text-ink-faint font-normal">/ 6</span>
                 </span>
               </div>
               <div
-                className="p-2 rounded-xl bg-slate-300/15 border border-slate-300/40 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                className="p-2.5 rounded-xl bg-surface border-2 border-slate-300 dark:border-slate-500/50 flex flex-col items-center justify-center gap-1.5 shadow-xs relative overflow-hidden"
                 title="Silver Tier (★★)"
               >
+                <div className="absolute inset-0 bg-slate-400/8 dark:bg-slate-400/12 pointer-events-none" />
                 <TierRankEmblem tier="silver" size="lg" />
-                <span className="font-mono font-black text-ink text-xs">
+                <span className="font-mono font-black text-ink text-xs relative z-10">
                   {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'silver' && badgeMap.get(b.id)?.unlocked).length}{' '}
                   <span className="text-[10px] text-ink-faint font-normal">/ 8</span>
                 </span>
               </div>
               <div
-                className="p-2 rounded-xl bg-orange-500/10 border border-orange-400/30 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                className="p-2.5 rounded-xl bg-surface border-2 border-orange-400/60 dark:border-orange-500/50 flex flex-col items-center justify-center gap-1.5 shadow-xs relative overflow-hidden"
                 title="Bronze Tier (★)"
               >
+                <div className="absolute inset-0 bg-orange-500/8 dark:bg-orange-500/12 pointer-events-none" />
                 <TierRankEmblem tier="bronze" size="lg" />
-                <span className="font-mono font-black text-ink text-xs">
+                <span className="font-mono font-black text-ink text-xs relative z-10">
                   {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'bronze' && badgeMap.get(b.id)?.unlocked).length}{' '}
                   <span className="text-[10px] text-ink-faint font-normal">/ 10</span>
                 </span>
