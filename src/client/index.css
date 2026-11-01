@@ -305,9 +305,99 @@
   animation: shooting-star 1.6s cubic-bezier(0.16, 0.45, 0.38, 1) forwards;
 }
 
+/* ── Physical Travel Journal Booklet Animations ── */
+@keyframes journal-pull-out {
+  0% {
+    opacity: 0;
+    transform: translateY(115%) rotate(-3deg) scale(0.9);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-6px) rotate(0.4deg) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes journal-put-away {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(120%) rotate(3deg) scale(0.9);
+  }
+}
+
+@keyframes page-turn-next {
+  0% {
+    transform: perspective(1200px) rotateY(0deg);
+    opacity: 1;
+  }
+  45% {
+    transform: perspective(1200px) rotateY(-24deg) skewY(-1deg) scale(0.97);
+    opacity: 0.6;
+    filter: brightness(0.92);
+  }
+  100% {
+    transform: perspective(1200px) rotateY(0deg);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@keyframes page-turn-prev {
+  0% {
+    transform: perspective(1200px) rotateY(0deg);
+    opacity: 1;
+  }
+  45% {
+    transform: perspective(1200px) rotateY(24deg) skewY(1deg) scale(0.97);
+    opacity: 0.6;
+    filter: brightness(0.92);
+  }
+  100% {
+    transform: perspective(1200px) rotateY(0deg);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+.journal-pull-out-anim {
+  animation: journal-pull-out 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.journal-put-away-anim {
+  animation: journal-put-away 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.page-turn-next-anim {
+  animation: page-turn-next 0.38s cubic-bezier(0.25, 1, 0.35, 1);
+}
+
+.page-turn-prev-anim {
+  animation: page-turn-prev 0.38s cubic-bezier(0.25, 1, 0.35, 1);
+}
+
+/* Journal paper edge depth styling */
+.journal-paper-stack {
+  box-shadow:
+    inset 0 0 35px rgba(0, 0, 0, 0.04),
+    0 2px 0 var(--line),
+    0 4px 0 color-mix(in srgb, var(--line) 90%, black 10%),
+    0 6px 0 color-mix(in srgb, var(--line) 80%, black 20%),
+    0 20px 50px -10px rgba(0, 0, 0, 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .shooting-star-anim {
+  .shooting-star-anim,
+  .journal-pull-out-anim,
+  .journal-put-away-anim,
+  .page-turn-next-anim,
+  .page-turn-prev-anim {
     animation: none !important;
-    display: none;
   }
 }
