@@ -209,6 +209,101 @@ const OrnateStampMedal = memo(function OrnateStampMedal({
   );
 });
 
+const TierRankEmblem = memo(function TierRankEmblem({
+  tier,
+  size = 'sm',
+}: {
+  tier: BadgeTier;
+  size?: 'sm' | 'lg';
+}): React.ReactElement {
+  const meta = {
+    gold: {
+      rimStroke: '#f59e0b',
+      accentColor: '#d97706',
+      rimFill: '#fef3c7',
+      coreFill: '#fde68a',
+      stars: 3,
+    },
+    silver: {
+      rimStroke: '#94a3b8',
+      accentColor: '#64748b',
+      rimFill: '#f1f5f9',
+      coreFill: '#e2e8f0',
+      stars: 2,
+    },
+    bronze: {
+      rimStroke: '#ea580c',
+      accentColor: '#c2410c',
+      rimFill: '#ffedd5',
+      coreFill: '#fed7aa',
+      stars: 1,
+    },
+  }[tier];
+
+  if (size === 'sm') {
+    // Compact graphical emblem for card header (NO TEXT)
+    return (
+      <div className="flex items-center gap-1 select-none">
+        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" fill={meta.rimFill} stroke={meta.rimStroke} strokeWidth="1.2" />
+          <circle cx="8" cy="8" r="5" fill={meta.coreFill} stroke={meta.accentColor} strokeWidth="0.8" strokeDasharray="1 1" />
+          <path d="M 4 11 C 5 13, 7 14, 8 14 C 9 14, 11 13, 12 11" fill="none" stroke={meta.accentColor} strokeWidth="0.9" strokeLinecap="round" />
+        </svg>
+        <div className="flex items-center gap-0.5">
+          {Array.from({ length: meta.stars }).map((_, i) => (
+            <svg key={i} viewBox="0 0 10 10" className="w-2.5 h-2.5" fill={meta.accentColor} aria-hidden="true">
+              <polygon points="5,0.8 6.3,3.5 9.3,3.9 7.1,6 7.7,9 5,7.5 2.3,9 2.9,6 0.7,3.9 3.7,3.5" />
+            </svg>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Large prestige medal illustration for Credential Certificate card (NO TEXT)
+  return (
+    <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center select-none">
+      <svg viewBox="0 0 48 48" className="w-full h-full" aria-hidden="true">
+        <circle cx="24" cy="24" r="21.5" fill={meta.rimFill} stroke={meta.rimStroke} strokeWidth="1.6" />
+        <circle cx="24" cy="24" r="18" fill="none" stroke={meta.rimStroke} strokeWidth="1" strokeDasharray="2 2" opacity="0.8" />
+        <circle cx="24" cy="24" r="15" fill={meta.coreFill} stroke={meta.accentColor} strokeWidth="1.2" />
+
+        {/* Laurel wreath garland */}
+        <path
+          d="M 12 28 C 15 36, 21 38, 24 38 C 27 38, 33 36, 36 28"
+          fill="none"
+          stroke={meta.accentColor}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
+        <path d="M 16 31 C 14 29, 14 27, 16 26 C 17 27, 17 29, 16 31 Z" fill={meta.accentColor} opacity="0.85" />
+        <path d="M 20 35 C 18 33, 19 31, 21 30 C 22 31, 22 33, 20 35 Z" fill={meta.accentColor} opacity="0.85" />
+        <path d="M 32 31 C 34 29, 34 27, 32 26 C 31 27, 31 29, 32 31 Z" fill={meta.accentColor} opacity="0.85" />
+        <path d="M 28 35 C 30 33, 29 31, 27 30 C 26 31, 26 33, 28 35 Z" fill={meta.accentColor} opacity="0.85" />
+
+        {/* Star ranks */}
+        {tier === 'gold' && (
+          <>
+            <polygon points="24,10 25.8,13.7 29.8,14.3 26.9,17.1 27.6,21.1 24,19.2 20.4,21.1 21.1,17.1 18.2,14.3 22.2,13.7" fill={meta.accentColor} />
+            <polygon points="17,14 18.2,16.5 20.9,16.9 19,18.7 19.5,21.4 17,20.1 14.5,21.4 15,18.7 13.1,16.9 15.8,16.5" fill={meta.accentColor} opacity="0.9" />
+            <polygon points="31,14 32.2,16.5 34.9,16.9 33,18.7 33.5,21.4 31,20.1 28.5,21.4 29,18.7 27.1,16.9 29.8,16.5" fill={meta.accentColor} opacity="0.9" />
+          </>
+        )}
+        {tier === 'silver' && (
+          <>
+            <polygon points="19,12 20.5,15.1 23.9,15.6 21.4,18 22,21.4 19,19.8 16,21.4 16.6,18 14.1,15.6 17.5,15.1" fill={meta.accentColor} />
+            <polygon points="29,12 30.5,15.1 33.9,15.6 31.4,18 32,21.4 29,19.8 26,21.4 26.6,18 24.1,15.6 27.5,15.1" fill={meta.accentColor} />
+          </>
+        )}
+        {tier === 'bronze' && (
+          <polygon points="24,11 26.2,15.5 31.1,16.2 27.6,19.6 28.4,24.5 24,22.2 19.6,24.5 20.4,19.6 16.9,16.2 21.8,15.5" fill={meta.accentColor} />
+        )}
+      </svg>
+    </div>
+  );
+});
+
 const BadgeItemCard = memo(function BadgeItemCard({
   def,
   badgeMap,
@@ -230,21 +325,18 @@ const BadgeItemCard = memo(function BadgeItemCard({
 
   const tierMeta = {
     gold: {
-      label: '傳奇金章',
       cardBorder: isUnlocked
         ? 'border-amber-400/60 dark:border-amber-500/50 bg-gradient-to-br from-amber-500/8 via-surface to-yellow-500/5'
         : 'border-line/70 bg-surface/50',
       badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/30',
     },
     silver: {
-      label: '榮譽銀章',
       cardBorder: isUnlocked
         ? 'border-slate-300/80 dark:border-slate-500/50 bg-gradient-to-br from-slate-400/8 via-surface to-slate-200/5'
         : 'border-line/70 bg-surface/50',
       badgeBg: 'bg-slate-400/15 text-slate-700 dark:text-slate-200 border-slate-300/40',
     },
     bronze: {
-      label: '行者銅章',
       cardBorder: isUnlocked
         ? 'border-orange-400/50 dark:border-orange-500/40 bg-gradient-to-br from-orange-500/8 via-surface to-amber-500/5'
         : 'border-line/70 bg-surface/50',
@@ -260,14 +352,15 @@ const BadgeItemCard = memo(function BadgeItemCard({
     >
       <div className="flex items-center justify-between text-[9px] font-mono mb-1 text-ink-faint">
         <span>STAMP · {def.id.replace('b-', '').toUpperCase()}</span>
-        <span
-          className={`px-1.5 py-0.2 rounded-full font-bold border text-[8px] flex items-center gap-0.5 ${
+        <div
+          className={`px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
             isUnlocked ? tierMeta.badgeBg : 'bg-surface-2 text-ink-faint border-line'
           }`}
+          title={`${tier.toUpperCase()} TIER`}
         >
           {isUnlocked && <Sparkles className="w-2 h-2" />}
-          {tierMeta.label}
-        </span>
+          <TierRankEmblem tier={tier} size="sm" />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -599,23 +692,35 @@ export function StampCabinetModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
-              <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-400/30">
-                <span className="text-[9px] text-amber-700 dark:text-amber-300 font-bold block">🥇 傳奇金</span>
-                <span className="font-mono font-bold text-ink text-xs">
-                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'gold' && badgeMap.get(b.id)?.unlocked).length} / 6
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div
+                className="p-2 rounded-xl bg-amber-500/10 border border-amber-400/30 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                title="Gold Tier (★★★)"
+              >
+                <TierRankEmblem tier="gold" size="lg" />
+                <span className="font-mono font-black text-ink text-xs">
+                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'gold' && badgeMap.get(b.id)?.unlocked).length}{' '}
+                  <span className="text-[10px] text-ink-faint font-normal">/ 6</span>
                 </span>
               </div>
-              <div className="p-1.5 rounded-lg bg-slate-300/15 border border-slate-300/40">
-                <span className="text-[9px] text-slate-700 dark:text-slate-300 font-bold block">🥈 榮譽銀</span>
-                <span className="font-mono font-bold text-ink text-xs">
-                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'silver' && badgeMap.get(b.id)?.unlocked).length} / 8
+              <div
+                className="p-2 rounded-xl bg-slate-300/15 border border-slate-300/40 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                title="Silver Tier (★★)"
+              >
+                <TierRankEmblem tier="silver" size="lg" />
+                <span className="font-mono font-black text-ink text-xs">
+                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'silver' && badgeMap.get(b.id)?.unlocked).length}{' '}
+                  <span className="text-[10px] text-ink-faint font-normal">/ 8</span>
                 </span>
               </div>
-              <div className="p-1.5 rounded-lg bg-orange-500/10 border border-orange-400/30">
-                <span className="text-[9px] text-orange-700 dark:text-orange-300 font-bold block">🥉 行者銅</span>
-                <span className="font-mono font-bold text-ink text-xs">
-                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'bronze' && badgeMap.get(b.id)?.unlocked).length} / 10
+              <div
+                className="p-2 rounded-xl bg-orange-500/10 border border-orange-400/30 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                title="Bronze Tier (★)"
+              >
+                <TierRankEmblem tier="bronze" size="lg" />
+                <span className="font-mono font-black text-ink text-xs">
+                  {BADGE_DEFINITIONS.filter((b) => getBadgeTier(b.id) === 'bronze' && badgeMap.get(b.id)?.unlocked).length}{' '}
+                  <span className="text-[10px] text-ink-faint font-normal">/ 10</span>
                 </span>
               </div>
             </div>
