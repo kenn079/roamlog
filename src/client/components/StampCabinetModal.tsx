@@ -342,13 +342,31 @@ export function StampCabinetModal({
     [userBadges]
   );
 
-  const footprintBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'footprint');
-  const distanceBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'distance');
-  const elevationBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'elevation');
-  const geographyBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'geography' || b.category === 'special');
-  const journalBadges = BADGE_DEFINITIONS.filter((b) => b.category === 'journal');
+  const spread0Left = useMemo(() => BADGE_DEFINITIONS.slice(0, 12), []);
+  const spread0Right = useMemo(() => BADGE_DEFINITIONS.slice(12, 24), []);
+  const footprintBadges = useMemo(() => BADGE_DEFINITIONS.filter((b) => b.category === 'footprint'), []);
+  const distanceBadges = useMemo(() => BADGE_DEFINITIONS.filter((b) => b.category === 'distance'), []);
+  const elevationBadges = useMemo(() => BADGE_DEFINITIONS.filter((b) => b.category === 'elevation'), []);
+  const geographyBadges = useMemo(() => BADGE_DEFINITIONS.filter((b) => b.category === 'geography' || b.category === 'special'), []);
+  const journalBadges = useMemo(() => BADGE_DEFINITIONS.filter((b) => b.category === 'journal'), []);
 
   const TOTAL_SPREADS = 4;
+  const flipTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const completeFlip = React.useCallback((targetSpread: number) => {
+    if (flipTimerRef.current) {
+      clearTimeout(flipTimerRef.current);
+      flipTimerRef.current = null;
+    }
+    setCurrentSpread(targetSpread);
+    setFlippingState(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -377,10 +395,11 @@ export function StampCabinetModal({
       toSpread: target,
     });
 
-    setTimeout(() => {
-      setCurrentSpread(target);
-      setFlippingState(null);
-    }, 440);
+    if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    // Fallback timer ensures transition completes even if onAnimationEnd doesn't fire
+    flipTimerRef.current = setTimeout(() => {
+      completeFlip(target);
+    }, 420);
   }
 
   function handleClose() {
@@ -396,7 +415,6 @@ export function StampCabinetModal({
     switch (spreadIdx) {
       case 0: {
         // Spread 0 Left: All Badges (First 12: includes b-origin, b-continents, b-thousand-km)
-        const leftHalf = BADGE_DEFINITIONS.slice(0, 12);
         return (
           <div className="flex flex-col h-full p-3 sm:p-4">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
@@ -405,11 +423,11 @@ export function StampCabinetModal({
                 全編探險印章錄 · 上冊
               </h3>
               <span className="text-[10px] font-mono text-ink-soft">
-                {leftHalf.filter((b) => badgeMap.get(b.id)?.unlocked).length} / 12 已授印
+                {spread0Left.filter((b) => badgeMap.get(b.id)?.unlocked).length} / 12 已授印
               </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {leftHalf.map((def) => (
+              {spread0Left.map((def) => (
                 <BadgeItemCard key={def.id} def={def} badgeMap={badgeMap} />
               ))}
             </div>
@@ -487,7 +505,6 @@ export function StampCabinetModal({
     switch (spreadIdx) {
       case 0: {
         // Spread 0 Right: All Badges (Second 12: includes b-cloud-walker, b-island-rider)
-        const rightHalf = BADGE_DEFINITIONS.slice(12, 24);
         return (
           <div className="flex flex-col h-full p-3 sm:p-4">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
@@ -496,11 +513,11 @@ export function StampCabinetModal({
                 全編探險印章錄 · 下冊
               </h3>
               <span className="text-[10px] font-mono text-ink-soft">
-                {rightHalf.filter((b) => badgeMap.get(b.id)?.unlocked).length} / 12 已授印
+                {spread0Right.filter((b) => badgeMap.get(b.id)?.unlocked).length} / 12 已授印
               </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {rightHalf.map((def) => (
+              {spread0Right.map((def) => (
                 <BadgeItemCard key={def.id} def={def} badgeMap={badgeMap} />
               ))}
             </div>
@@ -706,8 +723,8 @@ export function StampCabinetModal({
 
             {/* ── Two-Page Open Spread Area with Center Spine ── */}
             <div
-              className="relative w-full h-[66vh] sm:h-[68vh] flex overflow-hidden bg-journal-canvas"
-              style={{ perspective: '2200px' }}
+              className="relative w-full h-[66vh] sm:h-[68vh] flex bg-journal-canvas"
+              style={{ perspective: '2000px', transformStyle: 'preserve-3d' }}
             >
               {/* Static Left Page (Verso) */}
               <div
@@ -741,23 +758,24 @@ export function StampCabinetModal({
               {/* ── Real 3D Turning Page Leaf (Flipping Forward: Right to Left) ── */}
               {flippingState && flippingState.direction === 'next' && (
                 <div
-                  className="hidden sm:block absolute top-0 bottom-0 left-1/2 w-1/2 h-full z-30 book-flip-r2l-anim"
+                  className="hidden sm:block absolute top-0 bottom-0 left-1/2 w-1/2 h-full z-30 book-flip-r2l-anim pointer-events-none"
                   style={{
                     transformStyle: 'preserve-3d',
                   }}
+                  onAnimationEnd={() => completeFlip(flippingState.toSpread)}
                 >
                   {/* Front Face: outgoing right page */}
                   <div className="absolute inset-0 w-full h-full bg-journal-canvas border-l border-line backface-hidden overflow-hidden">
                     {renderRightPage(flippingState.fromSpread)}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                   {/* Back Face: incoming left page */}
                   <div
                     className="absolute inset-0 w-full h-full bg-journal-canvas border-r border-line backface-hidden overflow-hidden"
-                    style={{ transform: 'rotateY(180deg)' }}
+                    style={{ transform: 'translate3d(0, 0, 0) rotateY(180deg)' }}
                   >
                     {renderLeftPage(flippingState.toSpread)}
-                    <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/25 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                 </div>
               )}
@@ -765,23 +783,24 @@ export function StampCabinetModal({
               {/* ── Real 3D Turning Page Leaf (Flipping Backward: Left to Right) ── */}
               {flippingState && flippingState.direction === 'prev' && (
                 <div
-                  className="hidden sm:block absolute top-0 bottom-0 left-0 w-1/2 h-full z-30 book-flip-l2r-anim"
+                  className="hidden sm:block absolute top-0 bottom-0 left-0 w-1/2 h-full z-30 book-flip-l2r-anim pointer-events-none"
                   style={{
                     transformStyle: 'preserve-3d',
                   }}
+                  onAnimationEnd={() => completeFlip(flippingState.toSpread)}
                 >
                   {/* Front Face: outgoing left page */}
                   <div className="absolute inset-0 w-full h-full bg-journal-canvas border-r border-line backface-hidden overflow-hidden">
                     {renderLeftPage(flippingState.fromSpread)}
-                    <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/25 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                   {/* Back Face: incoming right page */}
                   <div
                     className="absolute inset-0 w-full h-full bg-journal-canvas border-l border-line backface-hidden overflow-hidden"
-                    style={{ transform: 'rotateY(180deg)' }}
+                    style={{ transform: 'translate3d(0, 0, 0) rotateY(180deg)' }}
                   >
                     {renderRightPage(flippingState.toSpread)}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-black/10 to-transparent pointer-events-none page-flip-shadow" />
                   </div>
                 </div>
               )}
