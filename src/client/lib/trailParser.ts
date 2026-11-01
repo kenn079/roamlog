@@ -54,31 +54,47 @@ function perpendicularDistanceMeters(p: TrailPoint, a: TrailPoint, b: TrailPoint
 
 /**
  * Douglas-Peucker point simplification algorithm
+ * Implemented iteratively with a stack to prevent Call Stack Overflow on large point arrays (>=10,000 points).
  * @param points Array of TrailPoints
  * @param toleranceMeters Tolerance threshold in meters (default: 15m)
  */
 export function simplifyTrailPoints(points: TrailPoint[], toleranceMeters = 15): TrailPoint[] {
   if (points.length <= 2) return points;
 
-  let maxDistance = 0;
-  let index = 0;
-  const end = points.length - 1;
+  const kept = new Uint8Array(points.length);
+  kept[0] = 1;
+  kept[points.length - 1] = 1;
 
-  for (let i = 1; i < end; i++) {
-    const d = perpendicularDistanceMeters(points[i], points[0], points[end]);
-    if (d > maxDistance) {
-      index = i;
-      maxDistance = d;
+  // Stack of [startIndex, endIndex]
+  const stack: [number, number][] = [[0, points.length - 1]];
+
+  while (stack.length > 0) {
+    const [start, end] = stack.pop()!;
+    let maxDist = 0;
+    let maxIdx = start;
+
+    for (let i = start + 1; i < end; i++) {
+      const d = perpendicularDistanceMeters(points[i], points[start], points[end]);
+      if (d > maxDist) {
+        maxDist = d;
+        maxIdx = i;
+      }
+    }
+
+    if (maxDist > toleranceMeters) {
+      kept[maxIdx] = 1;
+      if (maxIdx - start > 1) stack.push([start, maxIdx]);
+      if (end - maxIdx > 1) stack.push([maxIdx, end]);
     }
   }
 
-  if (maxDistance > toleranceMeters) {
-    const left = simplifyTrailPoints(points.slice(0, index + 1), toleranceMeters);
-    const right = simplifyTrailPoints(points.slice(index), toleranceMeters);
-    return left.slice(0, left.length - 1).concat(right);
-  } else {
-    return [points[0], points[end]];
+  const result: TrailPoint[] = [];
+  for (let i = 0; i < points.length; i++) {
+    if (kept[i] === 1) {
+      result.push(points[i]);
+    }
   }
+  return result;
 }
 
 /** Detect input file format */
@@ -119,6 +135,21 @@ function generateTrailId(): string {
 }
 
 /**
+ * Generate a deterministic fingerprint for a trail based on its source, time bounds, and endpoints
+ * to deduplicate identical trail imports.
+ */
+export function getTrailFingerprint(trail: Partial<Trail>): string {
+  const start = trail.points?.[0];
+  const end = trail.points?.[trail.points.length - 1];
+  const sLat = start?.lat != null ? start.lat.toFixed(4) : '';
+  const sLng = start?.lng != null ? start.lng.toFixed(4) : '';
+  const eLat = end?.lat != null ? end.lat.toFixed(4) : '';
+  const eLng = end?.lng != null ? end.lng.toFixed(4) : '';
+  const len = trail.points?.length || 0;
+  return `${trail.source || 'trail'}_${trail.startTime || ''}_${trail.endTime || ''}_${sLat},${sLng}_${eLat},${eLng}_${len}`;
+}
+
+/**
  * Parse Google Takeout Records.json (Location History)
  * Handles latitudeE7 / longitudeE7 conversion, splits segments on gaps (>2hr or >30km).
  */
@@ -130,6 +161,8 @@ export function parseGoogleTakeoutRecords(json: any, titlePrefix = 'Google Timel
 
   for (const loc of rawLocations) {
     if (!loc || typeof loc !== 'object') continue;
+    if (loc.latitudeE7 == null || loc.longitudeE7 == null) continue;
+
     const latE7 = Number(loc.latitudeE7);
     const lngE7 = Number(loc.longitudeE7);
     if (!Number.isFinite(latE7) || !Number.isFinite(lngE7)) continue;
@@ -138,11 +171,21 @@ export function parseGoogleTakeoutRecords(json: any, titlePrefix = 'Google Timel
     const lng = lngE7 / 1e7;
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) continue;
 
-    const time = loc.timestamp || (loc.timestampMs ? new Date(Number(loc.timestampMs)).toISOString() : undefined);
+    let time: string | undefined = typeof loc.timestamp === 'string' ? loc.timestamp : undefined;
+    if (!time && loc.timestampMs != null) {
+      const ms = Number(loc.timestampMs);
+      if (Number.isFinite(ms)) {
+        const d = new Date(ms);
+        if (!isNaN(d.getTime())) {
+          time = d.toISOString();
+        }
+      }
+    }
+
     validPoints.push({
       lat,
       lng,
-      elevation: typeof loc.altitude === 'number' ? loc.altitude : undefined,
+      elevation: typeof loc.altitude === 'number' && Number.isFinite(loc.altitude) ? loc.altitude : undefined,
       time,
     });
   }
@@ -193,7 +236,6 @@ export function parseGoogleTakeoutRecords(json: any, titlePrefix = 'Google Timel
   if (currentSegment.length >= 2) {
     segments.push(currentSegment);
   } else if (segments.length === 0 && currentSegment.length > 0) {
-    // If only 1 point total, keep it
     segments.push(currentSegment);
   }
 
@@ -236,9 +278,10 @@ export function parseGoogleSemanticTimeline(json: any, titlePrefix = 'Timeline')
       const seg = item.activitySegment;
       if (seg.simplifiedRawPath && Array.isArray(seg.simplifiedRawPath.points)) {
         for (const p of seg.simplifiedRawPath.points) {
+          if (p.latE7 == null || p.lngE7 == null) continue;
           const lat = Number(p.latE7) / 1e7;
           const lng = Number(p.lngE7) / 1e7;
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             points.push({ lat, lng, time: p.timestamp });
           }
         }
@@ -318,7 +361,6 @@ export function parseGPXString(gpxText: string, defaultTitle = 'GPX Trail'): Tra
   if (!gpxText) return [];
   const trails: Trail[] = [];
 
-  // Match trk segments or rte
   const trkNameMatch = gpxText.match(/<name>(.*?)<\/name>/i);
   const trackName = trkNameMatch ? trkNameMatch[1].trim() : defaultTitle;
 

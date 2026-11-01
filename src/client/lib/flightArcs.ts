@@ -40,9 +40,9 @@ export function calculateGreatCirclePoints(
   let dot = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
   dot = Math.max(-1, Math.min(1, dot));
 
-  // If points are essentially identical or antipodal
+  // If points are identical or near-antipodal (where sin(angle) -> 0 causing division by zero)
   const angle = Math.acos(dot);
-  if (angle < 1e-6) {
+  if (angle < 1e-6 || Math.abs(angle - Math.PI) < 1e-6) {
     return [
       [from.lng, from.lat],
       [to.lng, to.lat],

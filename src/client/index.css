@@ -15,7 +15,7 @@
 [data-theme="light"] {
   color-scheme: light;
   --canvas: #faf6ed;
-  --canvas-dot: rgba(180, 150, 110, 0.22);
+  --canvas-dot: rgba(155, 125, 80, 0.42);
   --surface: #ffffff;
   --surface-2: #f6f0e4;
   --line: #ede4d1;
@@ -46,33 +46,33 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #2a201a;
-  --canvas-dot: rgba(245, 180, 120, 0.12);
-  --surface: #352a22;
-  --surface-2: #43352c;
-  --line: #524136;
-  --ink: #f5ebe1;
-  --ink-soft: #c8b9ab;
-  --ink-faint: #948373;
-  --accent: #e57635;
-  --accent-hover: #f08343;
+  --canvas: #0e131f;
+  --canvas-dot: transparent;
+  --surface: #161e31;
+  --surface-2: #1e2942;
+  --line: #2a3854;
+  --ink: #f1f5f9;
+  --ink-soft: #94a3b8;
+  --ink-faint: #64748b;
+  --accent: #f97316;
+  --accent-hover: #ea580c;
   --on-accent: #ffffff;
   --moss: #34d399;
   --moss-soft: #059669;
   --sun: #fbbf24;
-  --paper: #3a2e26;
-  --paper-ink: #f5ebe1;
+  --paper: #182238;
+  --paper-ink: #f1f5f9;
   --danger: #f87171;
-  --overlay: rgb(20 15 12 / 0.65);
-  --shadow: 0 14px 36px -14px rgb(0 0 0 / 0.55);
+  --overlay: rgb(8 12 22 / 0.72);
+  --shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.65);
 
-  --scene-sky: #423126;
-  --scene-far: #6e4d3a;
-  --scene-near: #523829;
-  --scene-snow: #f5ebe1;
-  --scene-tent: #e57635;
-  --scene-tent-shade: #b0531c;
-  --scene-orb: #f59e0b;
+  --scene-sky: #12192a;
+  --scene-far: #1a253d;
+  --scene-near: #253658;
+  --scene-snow: #e2e8f0;
+  --scene-tent: #f97316;
+  --scene-tent-shade: #c2410c;
+  --scene-orb: #fbbf24;
 }
 
 @theme inline {
@@ -119,6 +119,16 @@
 }
 
 @layer components {
+  .bg-journal-canvas {
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--canvas-dot) 1.5px, transparent 1.5px);
+    background-size: 20px 20px;
+    background-attachment: fixed;
+  }
+  [data-theme="dark"] .bg-journal-canvas {
+    background-image: none;
+  }
+
   .panel {
     background-color: var(--surface);
     border: 1px solid var(--line);
@@ -261,6 +271,21 @@
 }
 
 /* ── Background ambient effects (Dark mode shooting star) ────────────────────────────── */
+
+@keyframes star-twinkle {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+.star-twinkle {
+  animation: star-twinkle 3.2s ease-in-out infinite;
+}
 
 @keyframes shooting-star {
   0% {

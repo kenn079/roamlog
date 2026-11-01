@@ -86,8 +86,10 @@ export function evaluateBadges(footprints: Footprint[], trails: Trail[]): UserBa
   for (const fp of footprints) {
     if (fp.countryCode) {
       const code = fp.countryCode.toUpperCase();
-      const continent = CONTINENT_MAP[code] || 'OTHER';
-      continentSet.add(continent);
+      const continent = CONTINENT_MAP[code];
+      if (continent) {
+        continentSet.add(continent);
+      }
     }
   }
   const continentCount = continentSet.size;
@@ -136,9 +138,18 @@ export function evaluateBadges(footprints: Footprint[], trails: Trail[]): UserBa
   // 5. b-island-rider (Taiwan 4 extremes within 25km radius)
   let extremeMatches = 0;
   const allCoordinates: { lat: number; lng: number }[] = [];
-  for (const fp of footprints) allCoordinates.push(fp.coordinates);
+  for (const fp of footprints) {
+    // Fast bounding box pre-check for Taiwan area
+    if (fp.coordinates && fp.coordinates.lat >= 21.5 && fp.coordinates.lat <= 25.5 && fp.coordinates.lng >= 119.8 && fp.coordinates.lng <= 122.2) {
+      allCoordinates.push(fp.coordinates);
+    }
+  }
   for (const t of trails) {
-    for (const p of t.points) allCoordinates.push({ lat: p.lat, lng: p.lng });
+    for (const p of t.points) {
+      if (p.lat >= 21.5 && p.lat <= 25.5 && p.lng >= 119.8 && p.lng <= 122.2) {
+        allCoordinates.push({ lat: p.lat, lng: p.lng });
+      }
+    }
   }
 
   for (const ext of TAIWAN_EXTREMES) {

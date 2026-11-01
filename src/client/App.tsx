@@ -35,7 +35,7 @@ import { WishCardModal } from './components/WishCardModal';
 import { FirebaseSyncModal } from './components/FirebaseSyncModal';
 import { TimelineImportModal } from './components/TimelineImportModal';
 import { StampCabinetModal } from './components/StampCabinetModal';
-import { loadTrails } from './lib/trailStorage';
+import { loadTrails, saveTrails, exportSyncableTrailsSummary } from './lib/trailStorage';
 import {
   loginWithGoogle,
   logoutFirebase,
@@ -236,6 +236,10 @@ export function App(): React.ReactElement {
         const deletedSet = new Set(allDeleted);
 
         const localPayload = await api.exportBackup();
+        const storedTrails = await loadTrails();
+        if (storedTrails.length > 0) {
+          localPayload.trails = exportSyncableTrailsSummary(storedTrails, 450000);
+        }
         const remote = await fetchRemoteFirebaseData(uid);
 
         // Delete any tombstoned items that still exist in remote Firestore
@@ -252,6 +256,11 @@ export function App(): React.ReactElement {
 
         if (localChanged) {
           await api.importBackup(merged);
+          if (merged.trails && merged.trails.length > 0) {
+            await saveTrails(merged.trails);
+            const updatedTrails = await loadTrails();
+            setTrails(updatedTrails);
+          }
           await loadAll(filter);
         }
 
@@ -312,9 +321,18 @@ export function App(): React.ReactElement {
 
         const remote = await fetchRemoteFirebaseData(firebaseUser.uid);
         const localPayload = await api.exportBackup();
+        const storedTrails = await loadTrails();
+        if (storedTrails.length > 0) {
+          localPayload.trails = exportSyncableTrailsSummary(storedTrails, 450000);
+        }
         const { merged, localChanged } = mergeBackupStores(localPayload, remote, deletedSet);
         if (localChanged) {
           await api.importBackup(merged);
+          if (merged.trails && merged.trails.length > 0) {
+            await saveTrails(merged.trails);
+            const updatedTrails = await loadTrails();
+            setTrails(updatedTrails);
+          }
           await loadAll(filter);
         }
         const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -395,6 +413,10 @@ export function App(): React.ReactElement {
 
   async function handleExportBackup() {
     const payload = await api.exportBackup();
+    const storedTrails = await loadTrails();
+    if (storedTrails.length > 0) {
+      payload.trails = storedTrails;
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -410,6 +432,11 @@ export function App(): React.ReactElement {
     const text = await file.text();
     const payload = JSON.parse(text) as BackupPayload;
     await api.importBackup(payload);
+    if (payload.trails && payload.trails.length > 0) {
+      await saveTrails(payload.trails);
+      const updatedTrails = await loadTrails();
+      setTrails(updatedTrails);
+    }
     loadAll(filter);
     if (firebaseUser) runSync();
   }

@@ -629,6 +629,11 @@ export function WorldMapView({
           theme === 'dark' ? '#3a2e27' : '#ffffff'
         );
       }
+      if (map.getLayer('fog-mask-fill')) {
+        const fogStyle = getFogLayerStyle(theme || 'light');
+        map.setPaintProperty('fog-mask-fill', 'fill-color', fogStyle.fillColor);
+        map.setPaintProperty('fog-mask-fill', 'fill-opacity', fogStyle.fillOpacity);
+      }
     } catch {
       // Ignore layout property error before style load
     }
@@ -740,6 +745,44 @@ export function WorldMapView({
       },
     });
   }, [routeCoordinates, mapReady]);
+
+  // Fog of war mask visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    try {
+      if (map.getLayer('fog-mask-fill')) {
+        map.setLayoutProperty('fog-mask-fill', 'visibility', fogEnabled ? 'visible' : 'none');
+      }
+    } catch {
+      // Ignore errors before style ready
+    }
+  }, [fogEnabled, mapReady]);
+
+  // Update trails, flight arcs, and fog mask data sources
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    try {
+      const trailsSrc = map.getSource('user-trails') as maplibregl.GeoJSONSource | undefined;
+      if (trailsSrc?.setData) {
+        trailsSrc.setData(generateTrailsGeoJSON(trails) as any);
+      }
+
+      const arcsSrc = map.getSource('flight-arcs') as maplibregl.GeoJSONSource | undefined;
+      if (arcsSrc?.setData) {
+        const arcs = extractFlightArcsFromFootprints(footprints);
+        arcsSrc.setData(generateFlightArcsGeoJSON(arcs) as any);
+      }
+
+      const fogSrc = map.getSource('fog-mask') as maplibregl.GeoJSONSource | undefined;
+      if (fogSrc?.setData) {
+        fogSrc.setData(generateFogMaskGeoJSON(footprints, trails) as any);
+      }
+    } catch {
+      // Ignore update errors before style ready
+    }
+  }, [footprints, trails, mapReady]);
 
   // Update Polaroid & Wish markers
   useEffect(() => {

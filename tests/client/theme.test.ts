@@ -41,7 +41,7 @@ describe('theme', () => {
     applyTheme('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#2a201a');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#0e131f');
 
     applyTheme('light');
     expect(document.documentElement.dataset.theme).toBe('light');

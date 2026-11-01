@@ -29,7 +29,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { getFirebaseConfig } from './firebaseConfig';
-import type { BackupPayload, Companion, Footprint, Trip, Wish } from '../../shared/types';
+import type { BackupPayload, Companion, Footprint, Trip, Wish, Trail } from '../../shared/types';
 
 let appInstance: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
@@ -135,7 +135,7 @@ export function onFirebaseAuthState(callback: (user: User | null) => void): () =
  */
 export async function deleteFromFirebase(
   uid: string,
-  collectionName: 'footprints' | 'wishes' | 'trips' | 'companions',
+  collectionName: 'footprints' | 'wishes' | 'trips' | 'companions' | 'trails',
   id: string
 ): Promise<void> {
   const db = getFirebaseFirestore();
@@ -200,17 +200,19 @@ export async function saveRemoteDeletedIds(uid: string, ids: string[]): Promise<
 export async function fetchRemoteFirebaseData(uid: string): Promise<BackupPayload> {
   const db = getFirebaseFirestore();
 
-  const [fpSnap, wishSnap, tripSnap, compSnap] = await Promise.all([
+  const [fpSnap, wishSnap, tripSnap, compSnap, trailSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'footprints')),
     getDocs(collection(db, 'users', uid, 'wishes')),
     getDocs(collection(db, 'users', uid, 'trips')),
     getDocs(collection(db, 'users', uid, 'companions')),
+    getDocs(collection(db, 'users', uid, 'trails')),
   ]);
 
   const footprints: Footprint[] = fpSnap.docs.map((d) => d.data() as Footprint);
   const wishes: Wish[] = wishSnap.docs.map((d) => d.data() as Wish);
   const trips: Trip[] = tripSnap.docs.map((d) => d.data() as Trip);
   const companions: Companion[] = compSnap.docs.map((d) => d.data() as Companion);
+  const trails: Trail[] = trailSnap.docs.map((d) => d.data() as Trail);
 
   return {
     version: 1,
@@ -219,6 +221,7 @@ export async function fetchRemoteFirebaseData(uid: string): Promise<BackupPayloa
     wishes,
     trips,
     companions,
+    trails,
   };
 }
 
@@ -266,7 +269,13 @@ export async function uploadToFirebase(uid: string, payload: BackupPayload): Pro
     await addBatchOp(ref, c);
   }
 
-  // 5. Meta doc
+  // 5. Trails (sync-safe point summary)
+  for (const tr of payload.trails || []) {
+    const ref = doc(db, 'users', uid, 'trails', tr.id);
+    await addBatchOp(ref, tr);
+  }
+
+  // 6. Meta doc
   const metaRef = doc(db, 'users', uid, 'meta', 'sync');
   await addBatchOp(metaRef, {
     lastModified: new Date().toISOString(),
@@ -308,6 +317,12 @@ export function subscribeToFirebaseChanges(
     onRemoteUpdate();
   });
 
+  // Listen to trails
+  const unsubTrail = onSnapshot(collection(db, 'users', uid, 'trails'), () => {
+    if (initialLoad) return;
+    onRemoteUpdate();
+  });
+
   // Allow initial listener setup without false trigger
   setTimeout(() => {
     initialLoad = false;
@@ -317,5 +332,6 @@ export function subscribeToFirebaseChanges(
     unsubFp();
     unsubWish();
     unsubTrip();
+    unsubTrail();
   };
 }

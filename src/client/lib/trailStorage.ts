@@ -1,5 +1,5 @@
 import type { Trail } from '../../shared/types';
-import { simplifyTrailPoints } from './trailParser';
+import { simplifyTrailPoints, getTrailFingerprint } from './trailParser';
 
 const STORAGE_KEY = 'roamlog_trails_store_v1';
 const DB_NAME = 'roamlog_db';
@@ -34,21 +34,37 @@ function openDB(): Promise<IDBDatabase | null> {
 }
 
 /**
- * Save multiple trails to IndexedDB / LocalStorage fallback
+ * Save multiple trails to IndexedDB / LocalStorage fallback.
+ * Automatically deduplicates identical trails based on geographic/temporal fingerprint.
  */
 export async function saveTrails(newTrails: Trail[]): Promise<void> {
-  // Merge into memory cache
-  const trailMap = new Map<string, Trail>();
-  for (const t of memoryTrails) trailMap.set(t.id, t);
-  for (const t of newTrails) trailMap.set(t.id, t);
-  memoryTrails = Array.from(trailMap.values());
+  // Ensure existing stored trails are loaded before merging to prevent overwriting
+  if (memoryTrails.length === 0) {
+    await loadTrails();
+  }
+
+  const fingerprintMap = new Map<string, Trail>();
+  for (const t of memoryTrails) {
+    fingerprintMap.set(getTrailFingerprint(t), t);
+  }
+
+  const addedTrails: Trail[] = [];
+  for (const t of newTrails) {
+    const fp = getTrailFingerprint(t);
+    if (!fingerprintMap.has(fp)) {
+      fingerprintMap.set(fp, t);
+      addedTrails.push(t);
+    }
+  }
+
+  memoryTrails = Array.from(fingerprintMap.values());
 
   const db = await openDB();
   if (db) {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(DB_STORE, 'readwrite');
       const store = tx.objectStore(DB_STORE);
-      for (const trail of newTrails) {
+      for (const trail of addedTrails) {
         store.put(trail);
       }
       tx.oncomplete = () => resolve();
