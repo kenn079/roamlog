@@ -30,6 +30,7 @@ import {
   Flower2,
   Route,
   BookOpen,
+  ShieldCheck,
 } from 'lucide-react';
 import { BADGE_DEFINITIONS, evaluateBadges } from '../lib/badges';
 import type { Footprint, Trail, Wish } from '../../shared/types';
@@ -40,6 +41,36 @@ interface StampCabinetModalProps {
   footprints: Footprint[];
   trails: Trail[];
   wishes?: Wish[];
+}
+
+export type BadgeTier = 'gold' | 'silver' | 'bronze';
+
+export function getBadgeTier(badgeId: string): BadgeTier {
+  switch (badgeId) {
+    // Legendary Grand Master (Gold)
+    case 'b-world-citizen':
+    case 'b-island-rider':
+    case 'b-cloud-walker':
+    case 'b-five-thousand-km':
+    case 'b-footprint-50':
+    case 'b-marathon':
+      return 'gold';
+
+    // Veteran Explorer (Silver)
+    case 'b-continents':
+    case 'b-thousand-km':
+    case 'b-polar-circle':
+    case 'b-equator-crosser':
+    case 'b-tropic-cancer':
+    case 'b-four-seasons':
+    case 'b-cities-5':
+    case 'b-countries-5':
+      return 'silver';
+
+    // Pioneer Classic (Bronze)
+    default:
+      return 'bronze';
+  }
 }
 
 type CategoryTab = 'all' | 'footprint' | 'distance' | 'elevation' | 'geography' | 'journal';
@@ -56,7 +87,7 @@ const CATEGORY_TABS: { id: CategoryTab; label: string; icon: React.ReactNode }[]
 /**
  * Returns a cohesive Lucide icon consistent with RoamLog's warm journal design
  */
-function getStampIcon(iconKey: string, className = 'w-5 h-5') {
+function getStampIcon(iconKey: string, className = 'w-6 h-6') {
   switch (iconKey) {
     case 'compass':
       return <Compass className={className} />;
@@ -112,51 +143,239 @@ function getStampIcon(iconKey: string, className = 'w-5 h-5') {
 }
 
 /**
- * Renders an authentic vintage expedition passport stamp seal
+ * Generate a 16-lobe rosette path for the medal rim
  */
-function StampSeal({
+function generateRosettePath(cx = 36, cy = 36, rOuter = 33, rInner = 29.5, lobes = 16): string {
+  const points: string[] = [];
+  for (let i = 0; i < lobes * 2; i++) {
+    const angle = (i * Math.PI) / lobes - Math.PI / 2;
+    const r = i % 2 === 0 ? rOuter : rInner;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    points.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+  }
+  points.push('Z');
+  return points.join(' ');
+}
+
+const ROSETTE_PATH = generateRosettePath(36, 36, 33, 29.5, 16);
+
+/**
+ * Renders an ornate vintage expedition medallion / postal cachet seal
+ */
+function OrnateStampMedal({
   iconKey,
   isUnlocked,
   badgeId,
+  tier,
 }: {
   iconKey: string;
   isUnlocked: boolean;
   badgeId: string;
+  tier: BadgeTier;
 }): React.ReactElement {
-  // Deterministic subtle tilt for rubber-stamp tactile feel: -3deg to +3deg
+  // Deterministic subtle tilt for rubber-stamp tactile feel: -2.5deg to +2.5deg
   const hash = badgeId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const rotation = isUnlocked ? ((hash % 7) - 3) * 1.2 : 0;
+  const rotation = isUnlocked ? ((hash % 5) - 2) * 1.2 : 0;
+
+  // Tier color styling
+  const tierColors = {
+    gold: {
+      rimStroke: '#f59e0b',
+      rimFill: 'var(--medal-gold-rim, rgba(254, 243, 199, 0.9))',
+      coreFill: 'var(--medal-gold-core, rgba(253, 230, 138, 0.95))',
+      iconText: 'text-amber-600 dark:text-amber-300',
+      wreathColor: '#d97706',
+      stars: 3,
+      shadow: '0 4px 16px -2px rgba(245, 158, 11, 0.35)',
+    },
+    silver: {
+      rimStroke: '#94a3b8',
+      rimFill: 'var(--medal-silver-rim, rgba(241, 245, 249, 0.9))',
+      coreFill: 'var(--medal-silver-core, rgba(226, 232, 240, 0.95))',
+      iconText: 'text-slate-600 dark:text-slate-200',
+      wreathColor: '#64748b',
+      stars: 2,
+      shadow: '0 4px 14px -2px rgba(148, 163, 184, 0.28)',
+    },
+    bronze: {
+      rimStroke: '#ea580c',
+      rimFill: 'var(--medal-bronze-rim, rgba(255, 237, 213, 0.9))',
+      coreFill: 'var(--medal-bronze-core, rgba(254, 215, 170, 0.95))',
+      iconText: 'text-orange-600 dark:text-orange-300',
+      wreathColor: '#c2410c',
+      stars: 1,
+      shadow: '0 4px 14px -2px rgba(234, 88, 12, 0.25)',
+    },
+  }[tier];
 
   return (
     <div
-      className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform ${
-        isUnlocked
-          ? 'bg-accent/12 border-2 border-dashed border-accent/60 shadow-xs'
-          : 'bg-surface-2/60 border-2 border-dashed border-line/80'
-      }`}
+      className="relative w-16 h-16 sm:w-18 sm:h-18 shrink-0 flex items-center justify-center transition-transform select-none"
       style={{
         transform: isUnlocked ? `rotate(${rotation}deg)` : 'none',
+        filter: isUnlocked ? `drop-shadow(${tierColors.shadow})` : undefined,
       }}
     >
-      {/* Concentric inner seal ring */}
+      {/* ── Vector Medallion Frame ── */}
+      <svg
+        viewBox="0 0 72 72"
+        className="absolute inset-0 w-full h-full"
+        aria-hidden="true"
+      >
+        {isUnlocked ? (
+          <>
+            {/* 1. Outer 16-Lobe Scalloped Rosette */}
+            <path
+              d={ROSETTE_PATH}
+              fill={tierColors.rimFill}
+              stroke={tierColors.rimStroke}
+              strokeWidth="1.8"
+              strokeLinejoin="round"
+            />
+
+            {/* 2. Concentric Beaded Mint Coin Ring */}
+            <circle
+              cx="36"
+              cy="36"
+              r="27.5"
+              fill="none"
+              stroke={tierColors.rimStroke}
+              strokeWidth="1.2"
+              strokeDasharray="1.5 2.5"
+              opacity="0.85"
+            />
+
+            {/* 3. Core Medal Center Disc */}
+            <circle
+              cx="36"
+              cy="36"
+              r="24"
+              fill={tierColors.coreFill}
+              stroke={tierColors.rimStroke}
+              strokeWidth="1.4"
+            />
+
+            {/* 4. Ornate Laurel Wreath flanking bottom curve */}
+            <path
+              d="M 18 46 C 22 55, 29 58, 36 58 C 43 58, 50 55, 54 46"
+              fill="none"
+              stroke={tierColors.wreathColor}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+            {/* Laurel leaves left */}
+            <path
+              d="M 23 50 C 21 48, 20 45, 22 44 C 24 45, 25 48, 23 50 Z"
+              fill={tierColors.wreathColor}
+              opacity="0.85"
+            />
+            <path
+              d="M 29 55 C 27 53, 27 50, 29 49 C 31 50, 31 53, 29 55 Z"
+              fill={tierColors.wreathColor}
+              opacity="0.85"
+            />
+            {/* Laurel leaves right */}
+            <path
+              d="M 49 50 C 51 48, 52 45, 50 44 C 48 45, 47 48, 49 50 Z"
+              fill={tierColors.wreathColor}
+              opacity="0.85"
+            />
+            <path
+              d="M 43 55 C 45 53, 45 50, 43 49 C 41 50, 41 53, 43 55 Z"
+              fill={tierColors.wreathColor}
+              opacity="0.85"
+            />
+
+            {/* 5. Top Star Crest */}
+            <text
+              x="36"
+              y="17"
+              textAnchor="middle"
+              fontSize="7.5"
+              fontWeight="900"
+              fill={tierColors.wreathColor}
+            >
+              ★
+            </text>
+            {tierColors.stars >= 2 && (
+              <>
+                <text
+                  x="29"
+                  y="18.5"
+                  textAnchor="middle"
+                  fontSize="5.5"
+                  fontWeight="bold"
+                  fill={tierColors.wreathColor}
+                  opacity="0.85"
+                >
+                  ★
+                </text>
+                <text
+                  x="43"
+                  y="18.5"
+                  textAnchor="middle"
+                  fontSize="5.5"
+                  fontWeight="bold"
+                  fill={tierColors.wreathColor}
+                  opacity="0.85"
+                >
+                  ★
+                </text>
+              </>
+            )}
+          </>
+        ) : (
+          /* ── Locked Architectural Blueprint State ── */
+          <>
+            <circle
+              cx="36"
+              cy="36"
+              r="31"
+              fill="none"
+              stroke="currentColor"
+              className="text-line/90"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx="36"
+              cy="36"
+              r="25"
+              fill="none"
+              stroke="currentColor"
+              className="text-line/70"
+              strokeWidth="1"
+            />
+            {/* Compass crosshair lines */}
+            <line x1="36" y1="7" x2="36" y2="15" stroke="currentColor" className="text-line" strokeWidth="1" />
+            <line x1="36" y1="57" x2="36" y2="65" stroke="currentColor" className="text-line" strokeWidth="1" />
+            <line x1="7" y1="36" x2="15" y2="36" stroke="currentColor" className="text-line" strokeWidth="1" />
+            <line x1="57" y1="36" x2="65" y2="36" stroke="currentColor" className="text-line" strokeWidth="1" />
+          </>
+        )}
+      </svg>
+
+      {/* ── Central Icon ── */}
       <div
-        className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center border ${
+        className={`relative z-10 flex items-center justify-center ${
           isUnlocked
-            ? 'border-accent/40 text-accent bg-accent/5'
-            : 'border-line/60 text-ink-faint/50'
+            ? `${tierColors.iconText} drop-shadow-xs scale-105`
+            : 'text-ink-faint/40'
         }`}
       >
         {getStampIcon(
           iconKey,
-          isUnlocked ? 'w-5 h-5 stroke-[2.2]' : 'w-5 h-5 stroke-[1.8]'
+          isUnlocked ? 'w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.2]' : 'w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[1.6]'
         )}
       </div>
 
-      {/* Tiny vintage postal corner stamp mark */}
-      {isUnlocked && (
-        <span className="absolute -top-1 -right-1 text-[8px] font-black text-accent select-none pointer-events-none">
-          ★
-        </span>
+      {/* ── Locked Lock Badge ── */}
+      {!isUnlocked && (
+        <div className="absolute -bottom-1 -right-1 z-20 w-5 h-5 rounded-full bg-surface border border-line flex items-center justify-center text-ink-faint shadow-xs">
+          <Lock className="w-2.5 h-2.5" />
+        </div>
       )}
     </div>
   );
@@ -204,9 +423,14 @@ export function StampCabinetModal({
               <Award className="w-6 h-6" />
             </span>
             <div>
-              <h2 className="text-lg font-bold text-ink">旅行手帳印章館</h2>
+              <h2 className="text-lg font-bold text-ink flex items-center gap-2">
+                旅行手帳印章館
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-accent/15 text-accent border border-accent/30 hidden sm:inline-block">
+                  EXPEDITION MEDALS
+                </span>
+              </h2>
               <p className="text-xs text-ink-soft">
-                探索真實世界、抵達地理里程碑所收集的 24 款專屬手帳鋼印戳章
+                探索真實世界、抵達地理里程碑所收集的 24 款華麗手帳鋼印勳章
               </p>
             </div>
           </div>
@@ -257,10 +481,11 @@ export function StampCabinetModal({
 
         {/* Stamps Grid */}
         <div className="overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-3.5 my-1 max-h-[58vh]">
-          {filteredBadges.map((def) => {
+          {filteredBadges.map((def, idx) => {
             const status = badgeMap.get(def.id);
             const isUnlocked = Boolean(status?.unlocked);
             const progress = status ? Math.round(status.progress * 100) : 0;
+            const tier = getBadgeTier(def.id);
             const unlockedDate = status?.unlockedAt
               ? new Date(status.unlockedAt).toLocaleDateString(undefined, {
                   year: 'numeric',
@@ -269,26 +494,66 @@ export function StampCabinetModal({
                 })
               : null;
 
+            const tierMeta = {
+              gold: {
+                label: '傳奇金章',
+                cardBorder: isUnlocked
+                  ? 'border-amber-400/60 dark:border-amber-500/50 bg-gradient-to-br from-amber-500/5 via-surface to-yellow-500/5'
+                  : 'border-line/70 bg-surface/50',
+                badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/30',
+              },
+              silver: {
+                label: '榮譽銀章',
+                cardBorder: isUnlocked
+                  ? 'border-slate-300/80 dark:border-slate-500/50 bg-gradient-to-br from-slate-400/5 via-surface to-slate-200/5'
+                  : 'border-line/70 bg-surface/50',
+                badgeBg: 'bg-slate-400/15 text-slate-700 dark:text-slate-200 border-slate-300/40',
+              },
+              bronze: {
+                label: '行者銅章',
+                cardBorder: isUnlocked
+                  ? 'border-orange-400/50 dark:border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-surface to-amber-500/5'
+                  : 'border-line/70 bg-surface/50',
+                badgeBg: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-400/30',
+              },
+            }[tier];
+
             return (
               <div
                 key={def.id}
-                className={`p-3.5 sm:p-4 rounded-xl border-2 transition-all flex flex-col justify-between relative overflow-hidden ${
-                  isUnlocked
-                    ? 'bg-surface-2/60 border-accent/40 shadow-xs'
-                    : 'bg-surface/40 border-line/70 opacity-80'
-                }`}
+                className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all flex flex-col justify-between relative overflow-hidden ${
+                  tierMeta.cardBorder
+                } ${isUnlocked ? 'shadow-xs hover:scale-[1.01]' : 'opacity-85'}`}
               >
-                {/* Vintage postal stamp scalloped look */}
-                <div className="flex items-start gap-3">
-                  <StampSeal
+                {/* Top Certificate Header Line */}
+                <div className="flex items-center justify-between text-[10px] font-mono mb-2 text-ink-faint">
+                  <span>MEDAL-NO. {String(idx + 1).padStart(2, '0')}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full font-bold border text-[9px] flex items-center gap-1 ${
+                      isUnlocked
+                        ? tierMeta.badgeBg
+                        : 'bg-surface-2 text-ink-faint border-line'
+                    }`}
+                  >
+                    {isUnlocked && <Sparkles className="w-2.5 h-2.5" />}
+                    {tierMeta.label}
+                  </span>
+                </div>
+
+                {/* Main Body */}
+                <div className="flex items-center gap-3.5">
+                  <OrnateStampMedal
                     iconKey={def.icon}
                     isUnlocked={isUnlocked}
                     badgeId={def.id}
+                    tier={tier}
                   />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <h3 className="text-sm font-bold text-ink truncate">{def.title}</h3>
+                      <h3 className="text-sm font-extrabold text-ink truncate flex items-center gap-1.5">
+                        {def.title}
+                      </h3>
                       {isUnlocked ? (
                         <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-moss/20 text-moss-soft shrink-0">
                           <Check className="w-3 h-3" />
@@ -301,18 +566,21 @@ export function StampCabinetModal({
                         </span>
                       )}
                     </div>
+
                     <p className="text-xs text-ink-soft mt-1 leading-relaxed line-clamp-2">
                       {def.description}
                     </p>
 
                     {isUnlocked && unlockedDate && (
-                      <div className="mt-1.5 font-mono text-[10px] text-accent/80 flex items-center gap-1">
-                        <span>★ 點亮於 {unlockedDate}</span>
+                      <div className="mt-2 font-mono text-[10px] text-accent font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>認證於 {unlockedDate} 授印</span>
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Progress Bar for Locked */}
                 {!isUnlocked && (
                   <div className="w-full bg-line/60 h-1.5 rounded-full mt-3 overflow-hidden">
                     <div
@@ -328,7 +596,7 @@ export function StampCabinetModal({
 
         {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t border-line text-xs text-ink-soft">
-          <span>印章鋼印風格與旅行手帳畫布保持一致。</span>
+          <span>金、銀、銅三階探險鋼印勳章，記錄真實世界的壯遊旅程。</span>
           <button
             type="button"
             onClick={onClose}
