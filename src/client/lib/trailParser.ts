@@ -97,10 +97,36 @@ export function simplifyTrailPoints(points: TrailPoint[], toleranceMeters = 15):
   return result;
 }
 
+/** Parse coordinates from degree strings (e.g. "25.03396°, 121.56447°") or geo URIs */
+export function parseLatLngString(coordStr: unknown): { lat: number; lng: number } | null {
+  if (typeof coordStr !== 'string') return null;
+  const trimmed = coordStr.trim();
+  if (!trimmed) return null;
+
+  let clean = trimmed;
+  if (clean.toLowerCase().startsWith('geo:')) {
+    clean = clean.slice(4).split('?')[0].trim();
+  }
+
+  // Remove degree symbol
+  clean = clean.replace(/°/g, '');
+
+  const parts = clean.split(',').map((p) => parseFloat(p.trim()));
+  if (parts.length < 2) return null;
+
+  const lat = parts[0];
+  const lng = parts[1];
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+  return { lat, lng };
+}
+
 /** Detect input file format */
 export function detectFileFormat(
   content: string | object
-): 'google-records' | 'google-semantic' | 'geojson' | 'gpx' | 'unknown' {
+): 'google-records' | 'google-semantic' | 'google-on-device' | 'geojson' | 'gpx' | 'unknown' {
   if (typeof content === 'string') {
     const trimmed = content.trim();
     if (trimmed.startsWith('<') && (trimmed.includes('<gpx') || trimmed.includes('<trk'))) {
@@ -116,6 +142,9 @@ export function detectFileFormat(
 
   if (content && typeof content === 'object') {
     const obj = content as Record<string, any>;
+    if (Array.isArray(obj.semanticSegments) || Array.isArray(obj.rawSignals)) {
+      return 'google-on-device';
+    }
     if (Array.isArray(obj.locations)) {
       return 'google-records';
     }
@@ -304,6 +333,88 @@ export function parseGoogleSemanticTimeline(json: any, titlePrefix = 'Timeline')
         distanceKm,
         startTime: points[0]?.time,
         endTime: points[points.length - 1]?.time,
+        tripId: null,
+        source: 'google-timeline',
+        createdAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  return trails;
+}
+
+
+/**
+ * Parse Google on-device exported Timeline.json (contains semanticSegments)
+ */
+export function parseGoogleOnDeviceTimeline(json: any, titlePrefix = 'Timeline'): Trail[] {
+  if (!json || typeof json !== 'object') return [];
+  const segments = Array.isArray(json.semanticSegments) ? json.semanticSegments : [];
+  if (segments.length === 0) return [];
+
+  const trails: Trail[] = [];
+
+  segments.forEach((seg: any, idx: number) => {
+    if (!seg || typeof seg !== 'object') return;
+
+    const points: TrailPoint[] = [];
+
+    // Case 1: Granular route coordinates in timelinePath
+    if (Array.isArray(seg.timelinePath) && seg.timelinePath.length > 0) {
+      for (const p of seg.timelinePath) {
+        if (!p) continue;
+        const coord = parseLatLngString(p.point);
+        if (coord) {
+          points.push({
+            lat: coord.lat,
+            lng: coord.lng,
+            time: typeof p.time === 'string' ? p.time : undefined,
+          });
+        }
+      }
+    }
+
+    // Case 2: Activity start/end points if timelinePath is missing
+    if (points.length < 2 && seg.activity && typeof seg.activity === 'object') {
+      const act = seg.activity;
+      const startCoord = parseLatLngString(act.start?.latLng || act.startLocation?.latLng || act.start?.point);
+      const endCoord = parseLatLngString(act.end?.latLng || act.endLocation?.latLng || act.end?.point);
+
+      if (startCoord) {
+        points.push({ lat: startCoord.lat, lng: startCoord.lng, time: seg.startTime });
+      }
+      if (endCoord) {
+        points.push({ lat: endCoord.lat, lng: endCoord.lng, time: seg.endTime });
+      }
+    }
+
+    // Case 3: Inferred transitPath
+    if (points.length < 2 && Array.isArray(seg.transitPath)) {
+      for (const p of seg.transitPath) {
+        if (!p) continue;
+        const coord = parseLatLngString(p.point || p.latLng);
+        if (coord) {
+          points.push({
+            lat: coord.lat,
+            lng: coord.lng,
+            time: typeof p.time === 'string' ? p.time : undefined,
+          });
+        }
+      }
+    }
+
+    if (points.length >= 2) {
+      const simplified = points.length > 10 ? simplifyTrailPoints(points, 15) : points;
+      const distanceKm = calculateDistanceKm(simplified);
+      const dateStr = (seg.startTime || simplified[0]?.time || '').slice(0, 10);
+
+      trails.push({
+        id: generateTrailId(),
+        title: `${titlePrefix} ${dateStr ? dateStr + ' ' : ''}#${idx + 1}`.trim(),
+        points: simplified,
+        distanceKm,
+        startTime: simplified[0]?.time || seg.startTime,
+        endTime: simplified[simplified.length - 1]?.time || seg.endTime,
         tripId: null,
         source: 'google-timeline',
         createdAt: new Date().toISOString(),

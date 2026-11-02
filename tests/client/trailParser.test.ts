@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   parseGoogleTakeoutRecords,
   parseGoogleSemanticTimeline,
+  parseGoogleOnDeviceTimeline,
+  parseLatLngString,
   parseGeoJSONTracks,
   parseGPXString,
   simplifyTrailPoints,
@@ -19,6 +21,11 @@ describe('trailParser', () => {
     it('detects Google Semantic Timeline format', () => {
       const obj = { timelineObjects: [{ activitySegment: {} }] };
       expect(detectFileFormat(obj)).toBe('google-semantic');
+    });
+
+    it('detects Google on-device Timeline format (Timeline.json)', () => {
+      const obj = { semanticSegments: [] };
+      expect(detectFileFormat(obj)).toBe('google-on-device');
     });
 
     it('detects GeoJSON FeatureCollection format', () => {
@@ -106,6 +113,98 @@ describe('trailParser', () => {
       const trails = parseGoogleSemanticTimeline(raw, 'Semantic');
       expect(trails.length).toBe(1);
       expect(trails[0].points.length).toBe(2);
+    });
+  });
+
+  describe('parseLatLngString', () => {
+    it('parses degree formatted coordinates string', () => {
+      const res = parseLatLngString('25.03396°, 121.56447°');
+      expect(res).not.toBeNull();
+      expect(res?.lat).toBeCloseTo(25.03396, 5);
+      expect(res?.lng).toBeCloseTo(121.56447, 5);
+    });
+
+    it('parses geo URI coordinate string', () => {
+      const res = parseLatLngString('geo:25.03396,121.56447?z=15');
+      expect(res).not.toBeNull();
+      expect(res?.lat).toBeCloseTo(25.03396, 5);
+      expect(res?.lng).toBeCloseTo(121.56447, 5);
+    });
+
+    it('parses plain comma-separated decimal string', () => {
+      const res = parseLatLngString('-33.8688, 151.2093');
+      expect(res).not.toBeNull();
+      expect(res?.lat).toBeCloseTo(-33.8688, 4);
+      expect(res?.lng).toBeCloseTo(151.2093, 4);
+    });
+
+    it('returns null for invalid coordinate string', () => {
+      expect(parseLatLngString('invalid,string')).toBeNull();
+      expect(parseLatLngString('')).toBeNull();
+    });
+  });
+
+  describe('parseGoogleOnDeviceTimeline', () => {
+    it('parses semanticSegments with timelinePath points', () => {
+      const raw = {
+        semanticSegments: [
+          {
+            startTime: '2024-05-01T10:00:00.000Z',
+            endTime: '2024-05-01T10:30:00.000Z',
+            timelinePath: [
+              { point: '25.0330°, 121.5640°', time: '2024-05-01T10:00:00.000Z' },
+              { point: '25.0350°, 121.5660°', time: '2024-05-01T10:15:00.000Z' },
+              { point: '25.0380°, 121.5690°', time: '2024-05-01T10:30:00.000Z' },
+            ],
+          },
+        ],
+      };
+
+      const trails = parseGoogleOnDeviceTimeline(raw, 'Timeline');
+      expect(trails.length).toBe(1);
+      expect(trails[0].points.length).toBe(3);
+      expect(trails[0].points[0].lat).toBeCloseTo(25.033, 3);
+      expect(trails[0].points[0].lng).toBeCloseTo(121.564, 3);
+      expect(trails[0].distanceKm).toBeGreaterThan(0);
+      expect(trails[0].startTime).toBe('2024-05-01T10:00:00.000Z');
+      expect(trails[0].source).toBe('google-timeline');
+    });
+
+    it('parses semanticSegments with activity start and end points', () => {
+      const raw = {
+        semanticSegments: [
+          {
+            startTime: '2024-05-02T14:00:00.000Z',
+            endTime: '2024-05-02T14:45:00.000Z',
+            activity: {
+              start: { latLng: '25.0400°, 121.5700°' },
+              end: { latLng: '25.0500°, 121.5800°' },
+              topCandidate: { type: 'WALKING' },
+            },
+          },
+        ],
+      };
+
+      const trails = parseGoogleOnDeviceTimeline(raw, 'Timeline');
+      expect(trails.length).toBe(1);
+      expect(trails[0].points.length).toBe(2);
+      expect(trails[0].points[0].lat).toBeCloseTo(25.04, 2);
+      expect(trails[0].points[1].lat).toBeCloseTo(25.05, 2);
+    });
+
+    it('gracefully skips empty or invalid segments', () => {
+      const raw = {
+        semanticSegments: [
+          null,
+          {
+            startTime: '2024-05-03T10:00:00.000Z',
+            timelinePath: [{ point: 'invalid' }],
+          },
+        ],
+      };
+
+      const trails = parseGoogleOnDeviceTimeline(raw);
+      expect(trails.length).toBe(0);
     });
   });
 

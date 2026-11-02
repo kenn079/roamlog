@@ -52,4 +52,43 @@ describe('TimelineImportModal', () => {
       expect(mockOnImportSuccess).toHaveBeenCalled();
     });
   });
+
+  it('parses dropped on-device Timeline.json and triggers onImportSuccess', async () => {
+    const mockOnImportSuccess = vi.fn();
+    const mockOnClose = vi.fn();
+
+    render(
+      <TimelineImportModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onImportSuccess={mockOnImportSuccess}
+      />
+    );
+
+    const jsonContent = JSON.stringify({
+      semanticSegments: [
+        {
+          startTime: '2024-04-01T08:00:00Z',
+          endTime: '2024-04-01T08:30:00Z',
+          timelinePath: [
+            { point: '25.03396°, 121.56447°', time: '2024-04-01T08:00:00Z' },
+            { point: '25.03500°, 121.56600°', time: '2024-04-01T08:30:00Z' },
+          ],
+        },
+      ],
+    });
+
+    const file = new File([jsonContent], 'Timeline.json', { type: 'application/json' });
+    const dropzone = screen.getByTestId('timeline-dropzone');
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [file],
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockOnImportSuccess).toHaveBeenCalled();
+    });
+  });
 });

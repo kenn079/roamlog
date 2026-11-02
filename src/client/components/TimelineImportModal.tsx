@@ -4,6 +4,7 @@ import {
   detectFileFormat,
   parseGoogleTakeoutRecords,
   parseGoogleSemanticTimeline,
+  parseGoogleOnDeviceTimeline,
   parseGeoJSONTracks,
   parseGPXString,
 } from '../lib/trailParser';
@@ -64,6 +65,9 @@ export function TimelineImportModal({
         } else if (format === 'google-semantic') {
           const json = JSON.parse(text);
           parsed = parseGoogleSemanticTimeline(json, file.name.replace(/\.[^/.]+$/, ''));
+        } else if (format === 'google-on-device') {
+          const json = JSON.parse(text);
+          parsed = parseGoogleOnDeviceTimeline(json, file.name.replace(/\.[^/.]+$/, ''));
         } else if (format === 'geojson') {
           const json = JSON.parse(text);
           parsed = parseGeoJSONTracks(json, file.name.replace(/\.[^/.]+$/, ''));
@@ -73,10 +77,14 @@ export function TimelineImportModal({
           // Try parse JSON fallback
           try {
             const json = JSON.parse(text);
-            if (Array.isArray(json.locations)) {
-              parsed = parseGoogleTakeoutRecords(json, file.name);
+            if (Array.isArray(json.semanticSegments) || Array.isArray(json.rawSignals)) {
+              parsed = parseGoogleOnDeviceTimeline(json, file.name.replace(/\.[^/.]+$/, ''));
+            } else if (Array.isArray(json.locations)) {
+              parsed = parseGoogleTakeoutRecords(json, file.name.replace(/\.[^/.]+$/, ''));
+            } else if (Array.isArray(json.timelineObjects)) {
+              parsed = parseGoogleSemanticTimeline(json, file.name.replace(/\.[^/.]+$/, ''));
             } else if (json.type === 'FeatureCollection' || json.type === 'Feature') {
-              parsed = parseGeoJSONTracks(json, file.name);
+              parsed = parseGeoJSONTracks(json, file.name.replace(/\.[^/.]+$/, ''));
             }
           } catch {
             throw new Error(`無法辨識檔案格式: ${file.name}。請確認為 Google 時間軸 JSON、GeoJSON 或 GPX 檔案。`);
@@ -139,7 +147,7 @@ export function TimelineImportModal({
           <div>
             <h2 className="text-lg font-bold text-ink">匯入時間軸與軌跡檔案</h2>
             <p className="text-xs text-ink-soft">
-              支援 Google 地圖時間軸 Records.json、GeoJSON、GPX
+              支援 Google 地圖時間軸 Records.json、Timeline.json、GeoJSON、GPX
             </p>
           </div>
         </div>
@@ -172,11 +180,14 @@ export function TimelineImportModal({
               點擊選取或拖曳檔案至此
             </p>
             <p className="text-xs text-ink-soft mt-1">
-              Google Takeout (Records.json) 或 .geojson / .gpx
+              Google Takeout (Records.json)、Timeline.json 或 .geojson / .gpx
             </p>
           </div>
 
           <div className="flex flex-wrap gap-1.5 justify-center mt-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-surface text-ink-soft border border-line">
+              Timeline.json
+            </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-surface text-ink-soft border border-line">
               Records.json
             </span>
