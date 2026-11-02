@@ -18,12 +18,13 @@ interface TimelineImportModalProps {
 }
 
 function readFileAsText(file: File): Promise<string> {
+  const cleanBOM = (str: string) => (str.charCodeAt(0) === 0xfeff ? str.slice(1) : str);
   if (typeof file.text === 'function') {
-    return file.text();
+    return file.text().then(cleanBOM);
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
+    reader.onload = () => resolve(cleanBOM(reader.result as string));
     reader.onerror = () => reject(reader.error || new Error('檔案讀取失敗'));
     reader.readAsText(file);
   });
@@ -92,7 +93,15 @@ export function TimelineImportModal({
         }
 
         if (parsed.length === 0) {
-          throw new Error(`檔案中未包含有效之經緯度軌跡數據。`);
+          let extraInfo = '';
+          try {
+            const sampleJson = JSON.parse(text);
+            if (sampleJson && typeof sampleJson === 'object') {
+              const keys = Object.keys(sampleJson).slice(0, 6).join(', ');
+              extraInfo = ` (偵測到欄位: ${keys || '空物件'})`;
+            }
+          } catch {}
+          throw new Error(`檔案中未包含有效之經緯度軌跡數據${extraInfo}。請確認此時間軸檔案有記錄出行移動軌跡。`);
         }
 
         totalImportedTrails.push(...parsed);

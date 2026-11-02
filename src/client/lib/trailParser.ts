@@ -97,10 +97,51 @@ export function simplifyTrailPoints(points: TrailPoint[], toleranceMeters = 15):
   return result;
 }
 
-/** Parse coordinates from degree strings (e.g. "25.03396°, 121.56447°") or geo URIs */
-export function parseLatLngString(coordStr: unknown): { lat: number; lng: number } | null {
-  if (typeof coordStr !== 'string') return null;
-  const trimmed = coordStr.trim();
+/** Parse coordinates from degree strings (e.g. "25.03396°, 121.56447°"), geo URIs, or coordinate objects */
+export function parseLatLngString(coord: unknown): { lat: number; lng: number } | null {
+  if (!coord) return null;
+
+  if (typeof coord === 'object') {
+    const obj = coord as Record<string, any>;
+    if (obj.latitudeE7 != null && obj.longitudeE7 != null) {
+      const lat = Number(obj.latitudeE7) / 1e7;
+      const lng = Number(obj.longitudeE7) / 1e7;
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+    if (obj.latE7 != null && obj.lngE7 != null) {
+      const lat = Number(obj.latE7) / 1e7;
+      const lng = Number(obj.lngE7) / 1e7;
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+    if (obj.latitude != null && obj.longitude != null) {
+      const lat = Number(obj.latitude);
+      const lng = Number(obj.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+    if (obj.lat != null && obj.lng != null) {
+      const lat = Number(obj.lat);
+      const lng = Number(obj.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+    if (obj.latLng) return parseLatLngString(obj.latLng);
+    if (obj.LatLng) return parseLatLngString(obj.LatLng);
+    if (obj.point) return parseLatLngString(obj.point);
+    if (obj.placeLocation) return parseLatLngString(obj.placeLocation);
+    if (obj.start) return parseLatLngString(obj.start);
+    if (obj.end) return parseLatLngString(obj.end);
+    return null;
+  }
+
+  if (typeof coord !== 'string') return null;
+  const trimmed = coord.trim();
   if (!trimmed) return null;
 
   let clean = trimmed;
@@ -111,11 +152,16 @@ export function parseLatLngString(coordStr: unknown): { lat: number; lng: number
   // Remove degree symbol
   clean = clean.replace(/°/g, '');
 
-  const parts = clean.split(',').map((p) => parseFloat(p.trim()));
+  const parts = clean.split(',').map((p) => p.trim());
   if (parts.length < 2) return null;
 
-  const lat = parts[0];
-  const lng = parts[1];
+  let lat = parseFloat(parts[0]);
+  let lng = parseFloat(parts[1]);
+
+  if (parts[0].toUpperCase().includes('S')) lat = -Math.abs(lat);
+  if (parts[0].toUpperCase().includes('N')) lat = Math.abs(lat);
+  if (parts[1].toUpperCase().includes('W')) lng = -Math.abs(lng);
+  if (parts[1].toUpperCase().includes('E')) lng = Math.abs(lng);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
@@ -345,40 +391,65 @@ export function parseGoogleSemanticTimeline(json: any, titlePrefix = 'Timeline')
 
 
 /**
- * Parse Google on-device exported Timeline.json (contains semanticSegments)
+ * Parse Google on-device exported Timeline.json
+ * Handles semanticSegments (activity, timelinePath, visits) as well as rawSignals GPS breadcrumbs.
  */
 export function parseGoogleOnDeviceTimeline(json: any, titlePrefix = 'Timeline'): Trail[] {
   if (!json || typeof json !== 'object') return [];
-  const segments = Array.isArray(json.semanticSegments) ? json.semanticSegments : [];
-  if (segments.length === 0) return [];
 
   const trails: Trail[] = [];
+  const segments = Array.isArray(json.semanticSegments) ? json.semanticSegments : [];
+  const standaloneVisitPoints: TrailPoint[] = [];
 
+  // 1. Process semanticSegments
   segments.forEach((seg: any, idx: number) => {
     if (!seg || typeof seg !== 'object') return;
 
     const points: TrailPoint[] = [];
 
-    // Case 1: Granular route coordinates in timelinePath
-    if (Array.isArray(seg.timelinePath) && seg.timelinePath.length > 0) {
-      for (const p of seg.timelinePath) {
+    // Check timelinePath in segment root or activity
+    const timelinePath = Array.isArray(seg.timelinePath)
+      ? seg.timelinePath
+      : Array.isArray(seg.activity?.timelinePath)
+      ? seg.activity.timelinePath
+      : Array.isArray(seg.activitySegment?.timelinePath)
+      ? seg.activitySegment.timelinePath
+      : null;
+
+    if (timelinePath && timelinePath.length > 0) {
+      for (const p of timelinePath) {
         if (!p) continue;
-        const coord = parseLatLngString(p.point);
+        const coord = parseLatLngString(p.point || p.latLng || p.LatLng || p);
         if (coord) {
           points.push({
             lat: coord.lat,
             lng: coord.lng,
-            time: typeof p.time === 'string' ? p.time : undefined,
+            time: typeof p.time === 'string' ? p.time : typeof p.timestamp === 'string' ? p.timestamp : undefined,
           });
         }
       }
     }
 
-    // Case 2: Activity start/end points if timelinePath is missing
-    if (points.length < 2 && seg.activity && typeof seg.activity === 'object') {
-      const act = seg.activity;
-      const startCoord = parseLatLngString(act.start?.latLng || act.startLocation?.latLng || act.start?.point);
-      const endCoord = parseLatLngString(act.end?.latLng || act.endLocation?.latLng || act.end?.point);
+    // Check simplifiedRawPath (some takeouts have it inside activitySegment)
+    const rawPath = seg.activitySegment?.simplifiedRawPath?.points || seg.activity?.simplifiedRawPath?.points;
+    if (points.length < 2 && Array.isArray(rawPath)) {
+      for (const p of rawPath) {
+        const coord = parseLatLngString(p);
+        if (coord) {
+          points.push({
+            lat: coord.lat,
+            lng: coord.lng,
+            time: typeof p.timestamp === 'string' ? p.timestamp : undefined,
+          });
+        }
+      }
+    }
+
+    // Check activity start and end points
+    const act = seg.activity || seg.activitySegment;
+    if (points.length < 2 && act && typeof act === 'object') {
+      const startCoord = parseLatLngString(act.start || act.startLocation);
+      const endCoord = parseLatLngString(act.end || act.endLocation);
 
       if (startCoord) {
         points.push({ lat: startCoord.lat, lng: startCoord.lng, time: seg.startTime });
@@ -388,18 +459,22 @@ export function parseGoogleOnDeviceTimeline(json: any, titlePrefix = 'Timeline')
       }
     }
 
-    // Case 3: Inferred transitPath
-    if (points.length < 2 && Array.isArray(seg.transitPath)) {
-      for (const p of seg.transitPath) {
-        if (!p) continue;
-        const coord = parseLatLngString(p.point || p.latLng);
-        if (coord) {
-          points.push({
-            lat: coord.lat,
-            lng: coord.lng,
-            time: typeof p.time === 'string' ? p.time : undefined,
-          });
-        }
+    // Check visit / placeVisit
+    const visit = seg.visit || seg.placeVisit;
+    if (visit && typeof visit === 'object') {
+      const visitCoord = parseLatLngString(
+        visit.topCandidate?.placeLocation ||
+        visit.location ||
+        visit.center ||
+        visit.latLng ||
+        visit.point
+      );
+      if (visitCoord) {
+        standaloneVisitPoints.push({
+          lat: visitCoord.lat,
+          lng: visitCoord.lng,
+          time: seg.startTime || seg.endTime,
+        });
       }
     }
 
@@ -421,6 +496,102 @@ export function parseGoogleOnDeviceTimeline(json: any, titlePrefix = 'Timeline')
       });
     }
   });
+
+  // If semantic movements yielded trails, return them
+  if (trails.length > 0) {
+    return trails;
+  }
+
+  // 2. If no trails from activities, check rawSignals (GPS breadcrumbs)
+  if (Array.isArray(json.rawSignals) && json.rawSignals.length > 0) {
+    const rawPoints: TrailPoint[] = [];
+
+    for (const sig of json.rawSignals) {
+      if (!sig || typeof sig !== 'object') continue;
+      const pos = sig.position || sig;
+      const coord = parseLatLngString(pos.LatLng || pos.latLng || pos.point || pos);
+      if (coord) {
+        const time = typeof pos.timestamp === 'string' ? pos.timestamp : typeof sig.timestamp === 'string' ? sig.timestamp : undefined;
+        rawPoints.push({
+          lat: coord.lat,
+          lng: coord.lng,
+          elevation: typeof pos.altitudeMeters === 'number' && Number.isFinite(pos.altitudeMeters) ? pos.altitudeMeters : undefined,
+          time,
+        });
+      }
+    }
+
+    if (rawPoints.length >= 2) {
+      // Split raw points into segments if time delta > 2 hours or distance > 30km
+      const segments: TrailPoint[][] = [];
+      let cur: TrailPoint[] = [rawPoints[0]];
+
+      for (let i = 1; i < rawPoints.length; i++) {
+        const prev = rawPoints[i - 1];
+        const next = rawPoints[i];
+        let split = false;
+
+        if (prev.time && next.time) {
+          const dt = Math.abs(new Date(next.time).getTime() - new Date(prev.time).getTime());
+          if (dt > 2 * 60 * 60 * 1000) split = true;
+        }
+
+        if (!split) {
+          const dist = haversineDistanceKm(prev.lat, prev.lng, next.lat, next.lng);
+          if (dist > 30) split = true;
+        }
+
+        if (split) {
+          if (cur.length >= 2) segments.push(cur);
+          cur = [next];
+        } else {
+          cur.push(next);
+        }
+      }
+      if (cur.length >= 2) segments.push(cur);
+
+      segments.forEach((seg, idx) => {
+        const simplified = seg.length > 10 ? simplifyTrailPoints(seg, 15) : seg;
+        const distanceKm = calculateDistanceKm(simplified);
+        const dateStr = simplified[0]?.time ? simplified[0].time.slice(0, 10) : '';
+
+        trails.push({
+          id: generateTrailId(),
+          title: `${titlePrefix} ${dateStr ? dateStr + ' ' : ''}#${idx + 1}`.trim(),
+          points: simplified,
+          distanceKm,
+          startTime: simplified[0]?.time,
+          endTime: simplified[simplified.length - 1]?.time,
+          tripId: null,
+          source: 'google-timeline',
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      if (trails.length > 0) {
+        return trails;
+      }
+    }
+  }
+
+  // 3. Fallback: If only standalone visits exist and there are at least 2 points, connect them as a journey
+  if (standaloneVisitPoints.length >= 2) {
+    const simplified = standaloneVisitPoints.length > 10 ? simplifyTrailPoints(standaloneVisitPoints, 15) : standaloneVisitPoints;
+    const distanceKm = calculateDistanceKm(simplified);
+    const dateStr = standaloneVisitPoints[0]?.time ? standaloneVisitPoints[0].time.slice(0, 10) : '';
+
+    trails.push({
+      id: generateTrailId(),
+      title: `${titlePrefix} ${dateStr ? dateStr + ' ' : ''}Visits`.trim(),
+      points: simplified,
+      distanceKm,
+      startTime: standaloneVisitPoints[0]?.time,
+      endTime: standaloneVisitPoints[standaloneVisitPoints.length - 1]?.time,
+      tripId: null,
+      source: 'google-timeline',
+      createdAt: new Date().toISOString(),
+    });
+  }
 
   return trails;
 }

@@ -142,6 +142,12 @@ describe('trailParser', () => {
       expect(parseLatLngString('invalid,string')).toBeNull();
       expect(parseLatLngString('')).toBeNull();
     });
+
+    it('parses coordinate objects with lat/lng, latitude/longitude, or E7 integers', () => {
+      expect(parseLatLngString({ latitude: 25.03, longitude: 121.56 })).toEqual({ lat: 25.03, lng: 121.56 });
+      expect(parseLatLngString({ latitudeE7: 250300000, longitudeE7: 1215600000 })).toEqual({ lat: 25.03, lng: 121.56 });
+      expect(parseLatLngString({ lat: 25.03, lng: 121.56 })).toEqual({ lat: 25.03, lng: 121.56 });
+    });
   });
 
   describe('parseGoogleOnDeviceTimeline', () => {
@@ -205,6 +211,63 @@ describe('trailParser', () => {
 
       const trails = parseGoogleOnDeviceTimeline(raw);
       expect(trails.length).toBe(0);
+    });
+
+    it('parses rawSignals array when semanticSegments is absent or has no tracks', () => {
+      const raw = {
+        rawSignals: [
+          { position: { LatLng: '25.0330°, 121.5640°', timestamp: '2024-05-01T10:00:00.000Z' } },
+          { position: { LatLng: '25.0350°, 121.5660°', timestamp: '2024-05-01T10:15:00.000Z' } },
+        ],
+      };
+      const trails = parseGoogleOnDeviceTimeline(raw, 'Raw Signals');
+      expect(trails.length).toBe(1);
+      expect(trails[0].points.length).toBe(2);
+      expect(trails[0].points[0].lat).toBeCloseTo(25.033, 3);
+    });
+
+    it('parses direct geo URI strings for activity.start and activity.end', () => {
+      const raw = {
+        semanticSegments: [
+          {
+            startTime: '2024-05-02T14:00:00.000Z',
+            endTime: '2024-05-02T14:45:00.000Z',
+            activity: {
+              start: 'geo:25.0400,121.5700',
+              end: 'geo:25.0500,121.5800',
+            },
+          },
+        ],
+      };
+      const trails = parseGoogleOnDeviceTimeline(raw);
+      expect(trails.length).toBe(1);
+      expect(trails[0].points.length).toBe(2);
+    });
+
+    it('extracts points from visit sequence when no movement path exists', () => {
+      const raw = {
+        semanticSegments: [
+          {
+            startTime: '2024-05-02T10:00:00.000Z',
+            visit: {
+              topCandidate: {
+                placeLocation: 'geo:25.03396,121.56447',
+              },
+            },
+          },
+          {
+            startTime: '2024-05-02T14:00:00.000Z',
+            visit: {
+              topCandidate: {
+                placeLocation: 'geo:25.04000,121.57000',
+              },
+            },
+          },
+        ],
+      };
+      const trails = parseGoogleOnDeviceTimeline(raw);
+      expect(trails.length).toBe(1);
+      expect(trails[0].points.length).toBe(2);
     });
   });
 
